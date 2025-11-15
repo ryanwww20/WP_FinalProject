@@ -1,11 +1,17 @@
 "use client";
 
 import { Session } from "next-auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useStatus } from "./StatusContext";
 
 interface ProfileHeaderProps {
   session: Session;
+}
+
+interface UserProfile {
+  name: string;
+  createdAt: string;
 }
 
 const statusConfig = {
@@ -14,19 +20,119 @@ const statusConfig = {
   offline: { color: "bg-gray-500" },
 };
 
-export default function ProfileHeader({ session }: ProfileHeaderProps) {
-  const { currentStatus } = useStatus();
+export default function ProfileHeader({ session: initialSession }: ProfileHeaderProps) {
+  const { data: session, update: updateSession } = useSession();
+  const { currentStatus, setCurrentStatus } = useStatus();
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(session.user?.name || "");
+  const [name, setName] = useState(session?.user?.name || initialSession.user?.name || "");
+  const [selectedStatus, setSelectedStatus] = useState<"studying" | "busy" | "offline">(currentStatus);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    setIsEditing(false);
+  // Load profile data from API
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const response = await fetch("/api/profile");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            const userName = data.user.name || session?.user?.name || initialSession.user?.name || "";
+            setName(userName);
+            setProfile({
+              name: data.user.name,
+              createdAt: data.user.createdAt,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      }
+    }
+    loadProfile();
+  }, [session?.user?.name, initialSession.user?.name]);
+
+  // Update selectedStatus when currentStatus changes
+  useEffect(() => {
+    setSelectedStatus(currentStatus);
+  }, [currentStatus]);
+
+  const handleSave = async () => {
+    if (name.trim() === "") {
+      alert("名稱不能為空");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Update name
+      const nameResponse = await fetch("/api/profile/name", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+
+      if (!nameResponse.ok) {
+        const error = await nameResponse.json();
+        alert(`更新名稱失敗: ${error.error}`);
+        setIsSaving(false);
+        return;
+      }
+
+      const nameData = await nameResponse.json();
+      setName(nameData.name);
+      setProfile((prev) => (prev ? { ...prev, name: nameData.name } : null));
+
+      // Update status if changed
+      if (selectedStatus !== currentStatus) {
+        const statusResponse = await fetch("/api/profile/status", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: selectedStatus }),
+        });
+
+        if (!statusResponse.ok) {
+          const error = await statusResponse.json();
+          alert(`更新狀態失敗: ${error.error}`);
+        } else {
+          setCurrentStatus(selectedStatus);
+        }
+      }
+
+      // Update NextAuth session to reflect the new name
+      // This will update Navbar and Homepage immediately
+      await updateSession();
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      alert("更新失敗，請稍後再試");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatJoinDate = () => {
-    // Use a default date or get from session if available
-    const date = new Date();
+    if (!profile?.createdAt) {
+      const date = new Date();
+      const monthNames = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+      return `Joined ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    }
+
+    const date = new Date(profile.createdAt);
     const monthNames = [
       "January",
       "February",
@@ -56,16 +162,16 @@ export default function ProfileHeader({ session }: ProfileHeaderProps) {
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 flex-1">
             {/* Avatar */}
             <div className="relative">
-              {session.user?.image ? (
+              {(session?.user?.image || initialSession.user?.image) ? (
                 <img
-                  src={session.user.image}
-                  alt={session.user.name || "User"}
+                  src={session?.user?.image || initialSession.user?.image || ""}
+                  alt={session?.user?.name || initialSession.user?.name || "User"}
                   className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-50 object-cover"
                 />
               ) : (
                 <div className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-50 bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
                   <span className="text-4xl font-bold text-white">
-                    {session.user?.name?.charAt(0).toUpperCase() || "U"}
+                    {(session?.user?.name || initialSession.user?.name || "U").charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
@@ -84,28 +190,44 @@ export default function ProfileHeader({ session }: ProfileHeaderProps) {
                   />
                 ) : (
                   <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-700">
-                    {session.user?.name || "User"}
+                    {name || session?.user?.name || initialSession.user?.name || "User"}
                   </h1>
                 )}
 
                 {/* Status Dot */}
-                <div
-                  className={`w-3 h-3 rounded-full ${statusInfo.color}`}
-                  title={
-                    currentStatus === "studying"
-                      ? "學習中"
-                      : currentStatus === "busy"
-                      ? "忙碌"
-                      : "離線"
-                  }
-                ></div>
+                {isEditing ? (
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) =>
+                      setSelectedStatus(
+                        e.target.value as "studying" | "busy" | "offline"
+                      )
+                    }
+                    className="text-sm font-medium px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-400 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="studying">學習中</option>
+                    <option value="busy">忙碌</option>
+                    <option value="offline">離線</option>
+                  </select>
+                ) : (
+                  <div
+                    className={`w-3 h-3 rounded-full ${statusInfo.color}`}
+                    title={
+                      currentStatus === "studying"
+                        ? "學習中"
+                        : currentStatus === "busy"
+                        ? "忙碌"
+                        : "離線"
+                    }
+                  ></div>
+                )}
               </div>
 
               {/* User ID and Join Date */}
               <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-600">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono font-medium">
-                    {session.user?.userId || "N/A"}
+                    {session?.user?.userId || initialSession.user?.userId || "N/A"}
                   </span>
                 </div>
                 <span className="text-gray-500 dark:text-gray-500">•</span>
@@ -116,12 +238,35 @@ export default function ProfileHeader({ session }: ProfileHeaderProps) {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 pt-20 sm:pt-0">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              Edit Profile
-            </button>
+            {isEditing ? (
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isSaving ? "儲存中..." : "儲存"}
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Edit Profile
+              </button>
+            )}
+            {isEditing && (
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setName(profile?.name || session?.user?.name || initialSession.user?.name || "");
+                  setSelectedStatus(currentStatus);
+                }}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-700 bg-gray-200 dark:bg-gray-300 hover:bg-gray-300 dark:hover:bg-gray-400 rounded-lg transition-colors disabled:opacity-50"
+              >
+                取消
+              </button>
+            )}
           </div>
         </div>
       </div>

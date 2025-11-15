@@ -125,6 +125,9 @@ export const authOptions: NextAuthOptions = {
           if (dbUser) {
             session.user.id = String(dbUser._id);
             session.user.userId = dbUser.userId;
+            session.user.name = dbUser.name; // Update name from database
+            session.user.email = dbUser.email; // Update email from database
+            session.user.image = dbUser.image; // Update image from database
             session.needsUserId = false;
             session.provider = typeof token.provider === 'string' ? token.provider : undefined; // Store provider in session
             return session;
@@ -146,6 +149,9 @@ export const authOptions: NextAuthOptions = {
             // But we'll handle it by updating the token next time
             session.user.id = String(dbUser._id);
             session.user.userId = dbUser.userId;
+            session.user.name = dbUser.name; // Update name from database
+            session.user.email = dbUser.email; // Update email from database
+            session.user.image = dbUser.image; // Update image from database
             session.needsUserId = false;
             session.provider = typeof token.provider === 'string' ? token.provider : undefined; // Store provider in session
             // Note: We can't update token here, but JWT callback will pick it up next time
@@ -154,6 +160,9 @@ export const authOptions: NextAuthOptions = {
             // User exists but no userId
             session.user.id = String(dbUser._id);
             session.user.userId = null;
+            session.user.name = dbUser.name; // Update name from database
+            session.user.email = dbUser.email; // Update email from database
+            session.user.image = dbUser.image; // Update image from database
             session.needsUserId = true;
             session.provider = typeof token.provider === 'string' ? token.provider : undefined; // Store provider in session
             return session;

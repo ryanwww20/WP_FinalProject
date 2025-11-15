@@ -1,9 +1,47 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
+interface StudyStats {
+  today: number;
+  thisWeek: number;
+  weekly: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
+}
+
 export default function StatisticsCard() {
-  const todayMinutes = 240; // 4 hours
-  const thisWeekMinutes = 1200; // 20 hours
+  const [stats, setStats] = useState<StudyStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const targetDailyMinutes = 480; // 8 hours
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const response = await fetch("/api/profile");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user?.studyStats) {
+            setStats(data.user.studyStats);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadStats();
+  }, []);
+
+  const todayMinutes = stats?.today || 0;
+  const thisWeekMinutes = stats?.thisWeek || 0;
 
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -12,6 +50,19 @@ export default function StatisticsCard() {
   };
 
   const todayProgress = (todayMinutes / targetDailyMinutes) * 100;
+
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 p-5">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-700 mb-5">
+          學習統計
+        </h2>
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          載入中...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 p-5">
@@ -54,13 +105,13 @@ export default function StatisticsCard() {
         {/* Weekly Chart */}
         <div className="space-y-1.5">
           {[
-            { day: "一", minutes: 300 },
-            { day: "二", minutes: 240 },
-            { day: "三", minutes: 180 },
-            { day: "四", minutes: 240 },
-            { day: "五", minutes: 240 },
-            { day: "六", minutes: 0 },
-            { day: "日", minutes: 0 },
+            { day: "一", minutes: stats?.weekly?.monday || 0 },
+            { day: "二", minutes: stats?.weekly?.tuesday || 0 },
+            { day: "三", minutes: stats?.weekly?.wednesday || 0 },
+            { day: "四", minutes: stats?.weekly?.thursday || 0 },
+            { day: "五", minutes: stats?.weekly?.friday || 0 },
+            { day: "六", minutes: stats?.weekly?.saturday || 0 },
+            { day: "日", minutes: stats?.weekly?.sunday || 0 },
           ].map((item, index) => {
             const maxMinutes = 480; // 8 hours max
             const height = (item.minutes / maxMinutes) * 100;
