@@ -1,9 +1,15 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
+
+  // Redirect to userId page if user needs to set userId
+  if (session?.needsUserId) {
+    redirect("/auth/set-userid?callbackUrl=/");
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-4">
@@ -34,6 +40,11 @@ export default async function Home() {
                   <p className="text-gray-600 dark:text-gray-400">
                     {session.user.email}
                   </p>
+                  {session.user.userId && (
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                      User ID: {session.user.userId}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
