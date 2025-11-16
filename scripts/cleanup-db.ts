@@ -44,18 +44,29 @@ async function cleanupDatabase() {
 
     const currentDb = connection.db;
 
+    // Helper function to filter out system collections
+    const isSystemCollection = (name: string): boolean => {
+      return name.startsWith('system.') || 
+             name.startsWith('_') || 
+             name === 'fs.chunks' || 
+             name === 'fs.files';
+    };
+
     // List all collections and their document counts
     console.log('\n2️⃣ Scanning database for collections...');
-    const collections = await currentDb.listCollections().toArray();
+    const allCollections = await currentDb.listCollections().toArray();
+    
+    // Filter out system collections
+    const collections = allCollections.filter((col: any) => !isSystemCollection(col.name));
     
     if (collections.length === 0) {
-      console.log('   ℹ️  No collections found. Database is already empty.');
+      console.log('   ℹ️  No user collections found. Database is already empty.');
       await mongoose.connection.close();
       console.log('\n🔌 Database connection closed.');
       process.exit(0);
     }
 
-    console.log(`   Found ${collections.length} collection(s):`);
+    console.log(`   Found ${collections.length} user collection(s):`);
     
     const collectionInfo: Array<{ name: string; count: number }> = [];
     
@@ -116,31 +127,43 @@ async function cleanupDatabase() {
     console.log('\n4️⃣ Deleting data...');
     
     let deletedCount = 0;
-    for (const { name, count } of collectionInfo) {
-      if (count > 0) {
+    // Delete from all collections (not just those with count > 0) to handle race conditions
+    for (const { name } of collectionInfo) {
+      try {
         const result = await currentDb.collection(name).deleteMany({});
         deletedCount += result.deletedCount;
-        console.log(`   ✅ Deleted ${result.deletedCount} document(s) from ${name}`);
+        if (result.deletedCount > 0) {
+          console.log(`   ✅ Deleted ${result.deletedCount} document(s) from ${name}`);
+        }
+      } catch (error: any) {
+        console.log(`   ⚠️  Error deleting from ${name}: ${error.message}`);
       }
     }
 
     console.log(`\n   Total documents deleted: ${deletedCount}`);
 
-    // Verify cleanup
+    // Re-scan all collections to catch any that might have been created during execution
     console.log('\n5️⃣ Verifying cleanup...');
+    const allCollectionsAfter = await currentDb.listCollections().toArray();
+    const userCollectionsAfter = allCollectionsAfter.filter((col: any) => !isSystemCollection(col.name));
+    
     let remainingCount = 0;
-    for (const { name } of collectionInfo) {
-      const count = await currentDb.collection(name).countDocuments();
+    const remainingCollections: string[] = [];
+    
+    for (const collection of userCollectionsAfter) {
+      const count = await currentDb.collection(collection.name).countDocuments();
       if (count > 0) {
         remainingCount += count;
-        console.log(`   ⚠️  ${name} still has ${count} document(s)`);
+        remainingCollections.push(collection.name);
+        console.log(`   ⚠️  ${collection.name} still has ${count} document(s)`);
       }
     }
 
     if (remainingCount === 0) {
       console.log('   ✅ All collections are now empty');
     } else {
-      console.log(`   ⚠️  Warning: ${remainingCount} document(s) still remain`);
+      console.log(`   ⚠️  Warning: ${remainingCount} document(s) still remain in ${remainingCollections.length} collection(s)`);
+      console.log('   💡 Tip: Run the script again to clean up any remaining data');
     }
 
     // Get final database stats
@@ -149,9 +172,13 @@ async function cleanupDatabase() {
     console.log(`   Collections: ${stats.collections}`);
     console.log(`   Data Size: ${(stats.dataSize / 1024).toFixed(2)} KB`);
     console.log(`   Storage Size: ${(stats.storageSize / 1024).toFixed(2)} KB`);
+    console.log(`   Indexes: ${stats.indexes} (indexes are preserved)`);
+    console.log(`   Index Size: ${(stats.indexSize / 1024).toFixed(2)} KB`);
 
     console.log('\n' + '='.repeat(50));
-    console.log('✅ Database cleanup completed!\n');
+    console.log('✅ Database cleanup completed!');
+    console.log('   Note: Collections and indexes are preserved, only documents were deleted.');
+    console.log('   To drop collections entirely, use MongoDB shell or add --drop-collections flag.\n');
 
   } catch (error: any) {
     console.error('\n❌ Error during cleanup:');
