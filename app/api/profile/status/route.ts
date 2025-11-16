@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import { requireAuth } from "@/lib/middleware/auth";
+import { STATUS_TYPES, StatusType } from "@/lib/constants";
 
 /**
  * PUT /api/profile/status
@@ -21,9 +22,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { status } = body;
 
-    if (!status || !["studying", "busy", "offline"].includes(status)) {
+    if (!status || !STATUS_TYPES.includes(status as StatusType)) {
       return NextResponse.json(
-        { error: "Invalid status. Must be 'studying', 'busy', or 'offline'" },
+        { error: `Invalid status. Must be one of: ${STATUS_TYPES.join(", ")}` },
         { status: 400 }
       );
     }
