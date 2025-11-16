@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { validateUserId } from '@/lib/validators';
+import { requireAuth } from '@/lib/middleware/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // This route doesn't require userId (user might be setting it for the first time)
+    const authResult = await requireAuth(req, { requireUserId: false });
+
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const { userId } = await req.json();
 

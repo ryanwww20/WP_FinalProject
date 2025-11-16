@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
 import User, { Course, CourseMeeting } from "@/models/User";
 import {
@@ -8,6 +6,7 @@ import {
   validateCourseColor,
   validateMeetings,
 } from "@/lib/validators";
+import { requireAuth } from "@/lib/middleware/auth";
 
 /**
  * Helper function to check for time slot conflicts
@@ -49,16 +48,15 @@ function hasConflict(
  * GET /api/profile/courses
  * Get user's courses
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     await connectDB();
 
@@ -110,14 +108,13 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
     const { name, color, teacher, meetings } = body;
@@ -247,14 +244,13 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -402,14 +398,13 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
     const { id } = body;

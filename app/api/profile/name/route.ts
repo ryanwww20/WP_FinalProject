@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import { validateName } from "@/lib/validators";
+import { requireAuth } from "@/lib/middleware/auth";
 
 /**
  * PUT /api/profile/name
@@ -12,14 +11,13 @@ import { validateName } from "@/lib/validators";
  */
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
     const { name } = body;
