@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
+import { validateName } from "@/lib/validators";
 
 /**
  * PUT /api/profile/name
@@ -23,16 +24,11 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { name } = body;
 
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
+    // Validate name
+    const validation = validateName(name);
+    if (!validation.isValid) {
       return NextResponse.json(
-        { error: "Name is required and must be a non-empty string" },
-        { status: 400 }
-      );
-    }
-
-    if (name.trim().length > 100) {
-      return NextResponse.json(
-        { error: "Name must be less than 100 characters" },
+        { error: validation.error },
         { status: 400 }
       );
     }

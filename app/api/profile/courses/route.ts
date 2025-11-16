@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
 import User, { Course, CourseMeeting } from "@/models/User";
+import {
+  validateCourseName,
+  validateCourseColor,
+  validateMeetings,
+} from "@/lib/validators";
 
 /**
  * Helper function to check for time slot conflicts
@@ -118,60 +123,28 @@ export async function POST(request: NextRequest) {
     const { name, color, teacher, meetings } = body;
 
     // Validation
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
+    const nameValidation = validateCourseName(name);
+    if (!nameValidation.isValid) {
       return NextResponse.json(
-        { error: "Course name is required" },
+        { error: nameValidation.error },
         { status: 400 }
       );
     }
 
-    if (!color || typeof color !== "string") {
+    const colorValidation = validateCourseColor(color);
+    if (!colorValidation.isValid) {
       return NextResponse.json(
-        { error: "Color is required" },
+        { error: colorValidation.error },
         { status: 400 }
       );
     }
 
-    if (!Array.isArray(meetings) || meetings.length === 0) {
+    const meetingsValidation = validateMeetings(meetings);
+    if (!meetingsValidation.isValid) {
       return NextResponse.json(
-        { error: "At least one meeting is required" },
+        { error: meetingsValidation.error },
         { status: 400 }
       );
-    }
-
-    const validTimeSlots = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"];
-
-    // Validate meetings
-    for (const meeting of meetings) {
-      if (
-        typeof meeting.dayOfWeek !== "number" ||
-        meeting.dayOfWeek < 1 ||
-        meeting.dayOfWeek > 6
-      ) {
-        return NextResponse.json(
-          { error: "dayOfWeek must be a number between 1 and 6" },
-          { status: 400 }
-        );
-      }
-
-      if (
-        !Array.isArray(meeting.timeSlots) ||
-        meeting.timeSlots.length === 0
-      ) {
-        return NextResponse.json(
-          { error: "Each meeting must have at least one time slot" },
-          { status: 400 }
-        );
-      }
-
-      for (const timeSlot of meeting.timeSlots) {
-        if (!validTimeSlots.includes(timeSlot)) {
-          return NextResponse.json(
-            { error: `Invalid timeSlot: ${timeSlot}. Must be '0'-'9' or 'A'-'D'` },
-            { status: 400 }
-          );
-        }
-      }
     }
 
     await connectDB();
@@ -322,47 +295,37 @@ export async function PUT(request: NextRequest) {
     }
 
     const courseToUpdate = courses[courseIndex];
-    const validTimeSlots = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"];
 
-    // Validate meetings if provided
-    if (updates.meetings !== undefined) {
-      if (!Array.isArray(updates.meetings) || updates.meetings.length === 0) {
+    // Validate name if provided
+    if (updates.name !== undefined) {
+      const nameValidation = validateCourseName(updates.name);
+      if (!nameValidation.isValid) {
         return NextResponse.json(
-          { error: "At least one meeting is required" },
+          { error: nameValidation.error },
           { status: 400 }
         );
       }
+    }
 
-      for (const meeting of updates.meetings) {
-        if (
-          typeof meeting.dayOfWeek !== "number" ||
-          meeting.dayOfWeek < 1 ||
-          meeting.dayOfWeek > 6
-        ) {
-          return NextResponse.json(
-            { error: "dayOfWeek must be a number between 1 and 6" },
-            { status: 400 }
-          );
-        }
+    // Validate color if provided
+    if (updates.color !== undefined) {
+      const colorValidation = validateCourseColor(updates.color);
+      if (!colorValidation.isValid) {
+        return NextResponse.json(
+          { error: colorValidation.error },
+          { status: 400 }
+        );
+      }
+    }
 
-        if (
-          !Array.isArray(meeting.timeSlots) ||
-          meeting.timeSlots.length === 0
-        ) {
-          return NextResponse.json(
-            { error: "Each meeting must have at least one time slot" },
-            { status: 400 }
-          );
-        }
-
-        for (const timeSlot of meeting.timeSlots) {
-          if (!validTimeSlots.includes(timeSlot)) {
-            return NextResponse.json(
-              { error: `Invalid timeSlot: ${timeSlot}` },
-              { status: 400 }
-            );
-          }
-        }
+    // Validate meetings if provided
+    if (updates.meetings !== undefined) {
+      const meetingsValidation = validateMeetings(updates.meetings);
+      if (!meetingsValidation.isValid) {
+        return NextResponse.json(
+          { error: meetingsValidation.error },
+          { status: 400 }
+        );
       }
 
       // Check for conflicts with other courses
