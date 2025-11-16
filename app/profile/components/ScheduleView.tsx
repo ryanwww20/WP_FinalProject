@@ -1,16 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-interface Course {
-  id: string;
-  name: string;
-  dayOfWeek: number; // 1-6 (Monday-Saturday)
-  timeSlot: string; // "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"
-  location?: string;
-  teacher?: string;
-  color: string;
-}
+import { Course, CourseMeeting } from "@/models/User";
 
 // Time slot definitions
 const timeSlots = [
@@ -52,14 +43,12 @@ export default function ScheduleView() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
     name: "",
-    dayOfWeek: 1,
-    timeSlot: "0", // For editing only
-    location: "",
     teacher: "",
     color: "bg-blue-500",
   });
-  const [rangeStart, setRangeStart] = useState<string>("0");
-  const [rangeEnd, setRangeEnd] = useState<string>("0");
+  const [meetings, setMeetings] = useState<CourseMeeting[]>([
+    { dayOfWeek: 1, timeSlots: [], location: "" },
+  ]);
 
   // Load courses from API
   useEffect(() => {
@@ -79,27 +68,46 @@ export default function ScheduleView() {
     loadCourses();
   }, []);
 
-  const getCourseForSlot = (displayDayIndex: number, timeSlotIndex: string) => {
-    // Convert display index (0-5 for 一-六) to actual dayOfWeek (1-6 for Mon-Sat)
+  // Get course for a specific slot (day + timeSlot)
+  const getCourseForSlot = (displayDayIndex: number, timeSlotIndex: string): Course | null => {
     const actualDayOfWeek = displayDayIndex + 1;
-    return courses.find(
-      (course) =>
-        course.dayOfWeek === actualDayOfWeek && course.timeSlot === timeSlotIndex
-    );
+    
+    for (const course of courses) {
+      for (const meeting of course.meetings) {
+        if (
+          meeting.dayOfWeek === actualDayOfWeek &&
+          meeting.timeSlots.includes(timeSlotIndex)
+        ) {
+          return course;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Get the position of a time slot within a course's meeting
+  // Returns: { index: number, total: number } or null if not found
+  const getSlotPosition = (course: Course, dayOfWeek: number, timeSlotIndex: string): { index: number; total: number } | null => {
+    for (const meeting of course.meetings) {
+      if (meeting.dayOfWeek === dayOfWeek && meeting.timeSlots.includes(timeSlotIndex)) {
+        const slotIndex = meeting.timeSlots.indexOf(timeSlotIndex);
+        return {
+          index: slotIndex + 1, // 1-based (e.g., "1 of 3")
+          total: meeting.timeSlots.length
+        };
+      }
+    }
+    return null;
   };
 
   const handleAddCourse = () => {
     setEditingCourse(null);
     setFormData({
       name: "",
-      dayOfWeek: 1,
-      timeSlot: "0",
-      location: "",
       teacher: "",
       color: "bg-blue-500",
     });
-    setRangeStart("0");
-    setRangeEnd("0");
+    setMeetings([{ dayOfWeek: 1, timeSlots: [], location: "" }]);
     setShowAddModal(true);
   };
 
@@ -107,21 +115,28 @@ export default function ScheduleView() {
     setEditingCourse(course);
     setFormData({
       name: course.name,
-      dayOfWeek: course.dayOfWeek,
-      timeSlot: course.timeSlot,
-      location: course.location || "",
       teacher: course.teacher || "",
       color: course.color,
     });
+    setMeetings(course.meetings.map((m) => ({ ...m })));
     setShowAddModal(true);
   };
 
-  const handleDeleteCourse = async (courseId: string | undefined) => {
+  const handleDeleteCourse = async (courseId: string | undefined, e?: React.MouseEvent) => {
+    // Prevent event propagation to avoid triggering edit
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
     if (!courseId) {
       console.error("Course ID is missing");
       alert("無法刪除：課程 ID 不存在");
       return;
     }
+
+    console.log("Attempting to delete course with ID:", courseId);
+    console.log("Current courses:", courses.map(c => ({ id: c.id, name: c.name })));
 
     if (!confirm("確定要刪除此課程嗎？")) {
       return;
@@ -137,8 +152,10 @@ export default function ScheduleView() {
       if (response.ok) {
         const data = await response.json();
         setCourses(data.courses || []);
+        console.log("Course deleted successfully, updated courses:", data.courses);
       } else {
         const error = await response.json();
+        console.error("Delete failed:", error);
         alert(`刪除失敗: ${error.error}`);
       }
     } catch (error) {
@@ -147,38 +164,55 @@ export default function ScheduleView() {
     }
   };
 
-  const getTimeSlotIndex = (slot: string): number => {
-    const index = timeSlots.findIndex((s) => s.index === slot);
-    return index >= 0 ? index : 0;
+  const addMeeting = () => {
+    setMeetings([...meetings, { dayOfWeek: 1, timeSlots: [], location: "" }]);
   };
 
-  const getTimeSlotsInRange = (start: string, end: string): string[] => {
-    const startIndex = getTimeSlotIndex(start);
-    const endIndex = getTimeSlotIndex(end);
-    const slots: string[] = [];
-    for (let i = Math.min(startIndex, endIndex); i <= Math.max(startIndex, endIndex); i++) {
-      slots.push(timeSlots[i].index);
+  const removeMeeting = (index: number) => {
+    if (meetings.length > 1) {
+      setMeetings(meetings.filter((_, i) => i !== index));
+    } else {
+      alert("至少需要一個上課時段");
     }
-    return slots;
+  };
+
+  const updateMeeting = (index: number, updates: Partial<CourseMeeting>) => {
+    const updated = [...meetings];
+    updated[index] = { ...updated[index], ...updates };
+    setMeetings(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // For editing, use single time slot
-    if (editingCourse) {
-      try {
+    // Validate meetings
+    for (const meeting of meetings) {
+      if (meeting.timeSlots.length === 0) {
+        alert("請為每個上課時段選擇至少一個時間段");
+        return;
+      }
+    }
+
+    const courseData = {
+      name: formData.name,
+      color: formData.color,
+      teacher: formData.teacher || undefined,
+      meetings: meetings.map((m) => ({
+        dayOfWeek: m.dayOfWeek,
+        timeSlots: m.timeSlots,
+        location: m.location?.trim() || undefined,
+      })),
+    };
+
+    try {
+      if (editingCourse) {
+        // Update existing course
         const response = await fetch("/api/profile/courses", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: editingCourse.id,
-            name: formData.name,
-            dayOfWeek: formData.dayOfWeek,
-            timeSlot: formData.timeSlot,
-            location: formData.location,
-            teacher: formData.teacher,
-            color: formData.color,
+            ...courseData,
           }),
         });
 
@@ -191,63 +225,25 @@ export default function ScheduleView() {
           const error = await response.json();
           alert(`操作失敗: ${error.error}`);
         }
-      } catch (error) {
-        console.error("Error saving course:", error);
-        alert("操作失敗，請稍後再試");
-      }
-      return;
-    }
-
-    // For adding, use range selection
-    const timeSlotsToAdd = getTimeSlotsInRange(rangeStart, rangeEnd);
-
-    if (timeSlotsToAdd.length === 0) {
-      alert("請至少選擇一個時間段");
-      return;
-    }
-
-    // Add all courses
-    try {
-      const promises = timeSlotsToAdd.map((timeSlot) =>
-        fetch("/api/profile/courses", {
+      } else {
+        // Create new course
+        const response = await fetch("/api/profile/courses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: formData.name,
-            dayOfWeek: formData.dayOfWeek,
-            timeSlot,
-            location: formData.location,
-            teacher: formData.teacher,
-            color: formData.color,
-          }),
-        })
-      );
+          body: JSON.stringify(courseData),
+        });
 
-      const responses = await Promise.all(promises);
-      const errors: string[] = [];
-
-      for (const response of responses) {
-        if (!response.ok) {
+        if (response.ok) {
+          const data = await response.json();
+          setCourses(data.courses || []);
+          setShowAddModal(false);
+        } else {
           const error = await response.json();
-          errors.push(error.error || "Unknown error");
+          alert(`操作失敗: ${error.error}`);
         }
       }
-
-      if (errors.length > 0) {
-        alert(`部分課程添加失敗:\n${errors.join("\n")}`);
-      }
-
-      // Reload all courses
-      const coursesResponse = await fetch("/api/profile/courses");
-      if (coursesResponse.ok) {
-        const data = await coursesResponse.json();
-        setCourses(data.courses || []);
-      }
-
-      setShowAddModal(false);
-      setEditingCourse(null);
     } catch (error) {
-      console.error("Error saving courses:", error);
+      console.error("Error saving course:", error);
       alert("操作失敗，請稍後再試");
     }
   };
@@ -276,7 +272,6 @@ export default function ScheduleView() {
               時間
             </div>
             {daysOfWeek.map((day, index) => {
-              // Convert display index to actual day of week (1=Monday, 6=Saturday)
               const actualDayOfWeek = index + 1;
               return (
                 <div
@@ -295,7 +290,7 @@ export default function ScheduleView() {
 
           {/* Time Slots */}
           <div className="relative">
-            {timeSlots.map((slot, slotIndex) => (
+            {timeSlots.map((slot) => (
               <div
                 key={slot.index}
                 className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-300"
@@ -316,17 +311,26 @@ export default function ScheduleView() {
 
                 {/* Day Columns */}
                 {daysOfWeek.map((_, dayIndex) => {
+                  const actualDayOfWeek = dayIndex + 1;
                   const course = getCourseForSlot(dayIndex, slot.index);
+                  const slotPosition = course ? getSlotPosition(course, actualDayOfWeek, slot.index) : null;
+
                   return (
                     <div
                       key={dayIndex}
                       className="relative border-l border-gray-200 dark:border-gray-300 p-1"
                     >
-                      {course && (
+                      {course && slotPosition && (
                         <div
                           className={`${course.color} text-white rounded px-2 py-1 text-xs shadow-sm cursor-pointer hover:shadow-md transition-shadow flex items-center gap-1.5 h-full group relative`}
-                          title={`${course.name}\n${slot.start}-${slot.end}\n${course.location || ""}`}
-                          onClick={() => handleEditCourse(course)}
+                          title={`${course.name}\n${course.teacher ? `教師: ${course.teacher}\n` : ""}${course.meetings.find(m => m.dayOfWeek === actualDayOfWeek)?.location || ""}`}
+                          onClick={(e) => {
+                            // Only trigger edit if clicking on the card itself, not on buttons
+                            if ((e.target as HTMLElement).tagName !== 'BUTTON' && 
+                                !(e.target as HTMLElement).closest('button')) {
+                              handleEditCourse(course);
+                            }
+                          }}
                         >
                           <span className="font-medium truncate flex-1">
                             {course.name}
@@ -335,14 +339,9 @@ export default function ScheduleView() {
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              if (course.id) {
-                                handleDeleteCourse(course.id);
-                              } else {
-                                console.error("Course missing ID:", course);
-                                alert("無法刪除：課程 ID 不存在");
-                              }
+                              handleDeleteCourse(course.id, e);
                             }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0 z-10 relative"
                             title="刪除課程"
                             type="button"
                           >
@@ -372,7 +371,7 @@ export default function ScheduleView() {
       {/* Add/Edit Course Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-50 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-300 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-50 rounded-lg p-6 max-w-2xl w-full mx-4 border border-gray-200 dark:border-gray-300 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-700 mb-4">
               {editingCourse ? "編輯課程" : "新增課程"}
             </h3>
@@ -389,106 +388,6 @@ export default function ScheduleView() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-600 mb-1">
-                    星期 *
-                  </label>
-                  <select
-                    value={formData.dayOfWeek}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        dayOfWeek: parseInt(e.target.value),
-                      })
-                    }
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
-                  >
-                    {daysOfWeek.map((day, index) => (
-                      <option key={index} value={index + 1}>
-                        週{day}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-600 mb-1">
-                    時間段 *
-                  </label>
-                  {editingCourse ? (
-                    <select
-                      value={formData.timeSlot}
-                      onChange={(e) =>
-                        setFormData({ ...formData, timeSlot: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
-                    >
-                      {timeSlots.map((slot) => (
-                        <option key={slot.index} value={slot.index}>
-                          {slot.index} ({slot.start}-{slot.end})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
-                            開始時間段
-                          </label>
-                          <select
-                            value={rangeStart}
-                            onChange={(e) => setRangeStart(e.target.value)}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
-                          >
-                            {timeSlots.map((slot) => (
-                              <option key={slot.index} value={slot.index}>
-                                {slot.index} ({slot.start}-{slot.end})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
-                            結束時間段
-                          </label>
-                          <select
-                            value={rangeEnd}
-                            onChange={(e) => setRangeEnd(e.target.value)}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
-                          >
-                            {timeSlots.map((slot) => (
-                              <option key={slot.index} value={slot.index}>
-                                {slot.index} ({slot.start}-{slot.end})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-600 mb-1">
-                  地點
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
                 />
               </div>
@@ -530,6 +429,121 @@ export default function ScheduleView() {
                 </div>
               </div>
 
+              {/* Meetings Section */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-600">
+                    上課時段 *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addMeeting}
+                    className="text-sm text-indigo-600 hover:text-indigo-700"
+                  >
+                    + 新增時段
+                  </button>
+                </div>
+
+                {meetings.map((meeting, meetingIndex) => (
+                  <div
+                    key={meetingIndex}
+                    className="mb-4 p-4 border border-gray-200 dark:border-gray-300 rounded-lg space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-600">
+                        時段 {meetingIndex + 1}
+                      </span>
+                      {meetings.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMeeting(meetingIndex)}
+                          className="text-sm text-red-600 hover:text-red-700"
+                        >
+                          刪除
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
+                          星期 *
+                        </label>
+                        <select
+                          value={meeting.dayOfWeek}
+                          onChange={(e) =>
+                            updateMeeting(meetingIndex, {
+                              dayOfWeek: parseInt(e.target.value),
+                            })
+                          }
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+                        >
+                          {daysOfWeek.map((day, index) => (
+                            <option key={index} value={index + 1}>
+                              週{day}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
+                          時間段 *
+                        </label>
+                        <select
+                          multiple
+                          value={meeting.timeSlots}
+                          onChange={(e) => {
+                            const selected = Array.from(
+                              e.target.selectedOptions,
+                              (option) => option.value
+                            );
+                            updateMeeting(meetingIndex, { timeSlots: selected });
+                          }}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+                          size={5}
+                        >
+                          {timeSlots.map((slot) => (
+                            <option 
+                              key={slot.index} 
+                              value={slot.index}
+                            >
+                              {slot.index} ({slot.start}-{slot.end})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          按住 Ctrl/Cmd (Mac) 或 Ctrl (Windows) 可多選
+                        </p>
+                        {meeting.timeSlots.length > 0 && (
+                          <p className="text-xs text-indigo-600 mt-1">
+                            已選擇: {meeting.timeSlots.sort().join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
+                        地點
+                      </label>
+                      <input
+                        type="text"
+                        value={meeting.location || ""}
+                        onChange={(e) =>
+                          updateMeeting(meetingIndex, {
+                            location: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <button
                   type="submit"
@@ -561,3 +575,4 @@ export default function ScheduleView() {
     </div>
   );
 }
+
