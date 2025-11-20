@@ -1,23 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
-import User from "@/models/User";
+import User, { Course, CourseMeeting } from "@/models/User";
+import {
+  validateCourseName,
+  validateCourseColor,
+  validateMeetings,
+} from "@/lib/validators";
+import { requireAuth } from "@/lib/middleware/auth";
+
+/**
+ * Helper function to check for time slot conflicts
+ * Returns true if there's a conflict, false otherwise
+ */
+function hasConflict(
+  newMeetings: CourseMeeting[],
+  existingCourses: Course[],
+  excludeCourseId?: string
+): { hasConflict: boolean; conflictInfo?: string } {
+  for (const newMeeting of newMeetings) {
+    for (const timeSlot of newMeeting.timeSlots) {
+      // Check against all existing courses
+      for (const existingCourse of existingCourses) {
+        // Skip the course being updated
+        if (excludeCourseId && existingCourse.id === excludeCourseId) {
+          continue;
+        }
+
+        // Check if any meeting of the existing course conflicts
+        for (const existingMeeting of existingCourse.meetings) {
+          if (
+            existingMeeting.dayOfWeek === newMeeting.dayOfWeek &&
+            existingMeeting.timeSlots.includes(timeSlot)
+          ) {
+            return {
+              hasConflict: true,
+              conflictInfo: `Conflict with "${existingCourse.name}" on day ${newMeeting.dayOfWeek} at time slot ${timeSlot}`,
+            };
+          }
+        }
+      }
+    }
+  }
+  return { hasConflict: false };
+}
 
 /**
  * GET /api/profile/courses
  * Get user's courses
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     await connectDB();
 
@@ -32,7 +71,6 @@ export async function GET() {
       );
     }
 
-    // Ensure all courses have id field
     // Convert Mongoose subdocuments to plain objects
     const courses = (user.schedule?.courses || []).map((course: any) => {
       const courseObj = course.toObject ? course.toObject() : course;
@@ -59,70 +97,55 @@ export async function GET() {
  * Add a new course
  * Body: {
  *   name: string;
- *   dayOfWeek: number; // 1-6
- *   timeSlot: string; // "0"-"9" or "A"-"D"
- *   location?: string;
- *   teacher?: string;
  *   color: string;
+ *   teacher?: string;
+ *   meetings: Array<{
+ *     dayOfWeek: number; // 1-6
+ *     timeSlots: string[]; // ["1", "2", ...]
+ *     location?: string;
+ *   }>;
  * }
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
-    const { name, dayOfWeek, timeSlot, location, teacher, color } = body;
+    const { name, color, teacher, meetings } = body;
 
     // Validation
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
+    const nameValidation = validateCourseName(name);
+    if (!nameValidation.isValid) {
       return NextResponse.json(
-        { error: "Course name is required" },
+        { error: nameValidation.error },
         { status: 400 }
       );
     }
 
-    if (
-      !dayOfWeek ||
-      typeof dayOfWeek !== "number" ||
-      dayOfWeek < 1 ||
-      dayOfWeek > 6
-    ) {
+    const colorValidation = validateCourseColor(color);
+    if (!colorValidation.isValid) {
       return NextResponse.json(
-        { error: "dayOfWeek must be a number between 1 and 6" },
+        { error: colorValidation.error },
         { status: 400 }
       );
     }
 
-    if (
-      !timeSlot ||
-      typeof timeSlot !== "string" ||
-      !["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"].includes(
-        timeSlot
-      )
-    ) {
+    const meetingsValidation = validateMeetings(meetings);
+    if (!meetingsValidation.isValid) {
       return NextResponse.json(
-        { error: "Invalid timeSlot. Must be '0'-'9' or 'A'-'D'" },
-        { status: 400 }
-      );
-    }
-
-    if (!color || typeof color !== "string") {
-      return NextResponse.json(
-        { error: "Color is required" },
+        { error: meetingsValidation.error },
         { status: 400 }
       );
     }
 
     await connectDB();
 
-    // Check if there's already a course at this time slot
     const user = await User.findOne({ userId: session.user.userId });
     if (!user) {
       return NextResponse.json(
@@ -139,28 +162,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingCourses = user.schedule?.courses || [];
-    const conflict = existingCourses.find(
-      (course: any) =>
-        course.dayOfWeek === dayOfWeek && course.timeSlot === timeSlot
-    );
+    const existingCourses = (user.schedule?.courses || []) as Course[];
 
-    if (conflict) {
+    // Check for conflicts
+    const conflictCheck = hasConflict(meetings, existingCourses);
+    if (conflictCheck.hasConflict) {
       return NextResponse.json(
-        { error: "A course already exists at this time slot" },
+        { error: conflictCheck.conflictInfo || "A course already exists at this time slot" },
         { status: 400 }
       );
     }
 
     // Generate unique ID
-    const newCourse = {
+    const newCourse: Course = {
       id: `course_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: name.trim(),
-      dayOfWeek,
-      timeSlot,
-      location: location?.trim() || undefined,
-      teacher: teacher?.trim() || undefined,
       color,
+      teacher: teacher?.trim() || undefined,
+      meetings: meetings.map((m: any) => ({
+        dayOfWeek: m.dayOfWeek,
+        timeSlots: m.timeSlots,
+        location: m.location?.trim() || undefined,
+      })),
     };
 
     // Add course to user's schedule
@@ -181,7 +204,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure courses have id field
+    // Convert to plain objects
     const courses = (updatedUser.schedule?.courses || []).map((course: any) => {
       const courseObj = course.toObject ? course.toObject() : course;
       return {
@@ -210,23 +233,24 @@ export async function POST(request: NextRequest) {
  * Body: {
  *   id: string;
  *   name?: string;
- *   dayOfWeek?: number;
- *   timeSlot?: string;
- *   location?: string;
- *   teacher?: string;
  *   color?: string;
+ *   teacher?: string;
+ *   meetings?: Array<{
+ *     dayOfWeek: number;
+ *     timeSlots: string[];
+ *     location?: string;
+ *   }>;
  * }
  */
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -256,10 +280,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const courses = user.schedule?.courses || [];
-    const courseIndex = courses.findIndex(
-      (course: any) => course.id === id
-    );
+    const courses = (user.schedule?.courses || []) as Course[];
+    const courseIndex = courses.findIndex((course: any) => course.id === id);
 
     if (courseIndex === -1) {
       return NextResponse.json(
@@ -268,68 +290,65 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Validate updates
-    if (updates.dayOfWeek !== undefined) {
-      if (
-        typeof updates.dayOfWeek !== "number" ||
-        updates.dayOfWeek < 1 ||
-        updates.dayOfWeek > 6
-      ) {
+    const courseToUpdate = courses[courseIndex];
+
+    // Validate name if provided
+    if (updates.name !== undefined) {
+      const nameValidation = validateCourseName(updates.name);
+      if (!nameValidation.isValid) {
         return NextResponse.json(
-          { error: "dayOfWeek must be a number between 1 and 6" },
+          { error: nameValidation.error },
           { status: 400 }
         );
       }
     }
 
-    if (updates.timeSlot !== undefined) {
-      if (
-        typeof updates.timeSlot !== "string" ||
-        !["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D"].includes(
-          updates.timeSlot
-        )
-      ) {
+    // Validate color if provided
+    if (updates.color !== undefined) {
+      const colorValidation = validateCourseColor(updates.color);
+      if (!colorValidation.isValid) {
         return NextResponse.json(
-          { error: "Invalid timeSlot" },
+          { error: colorValidation.error },
           { status: 400 }
         );
       }
     }
 
-    // Check for conflicts if dayOfWeek or timeSlot is being updated
-    if (updates.dayOfWeek !== undefined || updates.timeSlot !== undefined) {
-      const newDayOfWeek = updates.dayOfWeek ?? courses[courseIndex].dayOfWeek;
-      const newTimeSlot = updates.timeSlot ?? courses[courseIndex].timeSlot;
-
-      const conflict = courses.find(
-        (course: any, index: number) =>
-          index !== courseIndex &&
-          course.dayOfWeek === newDayOfWeek &&
-          course.timeSlot === newTimeSlot
-      );
-
-      if (conflict) {
+    // Validate meetings if provided
+    if (updates.meetings !== undefined) {
+      const meetingsValidation = validateMeetings(updates.meetings);
+      if (!meetingsValidation.isValid) {
         return NextResponse.json(
-          { error: "A course already exists at this time slot" },
+          { error: meetingsValidation.error },
+          { status: 400 }
+        );
+      }
+
+      // Check for conflicts with other courses
+      const conflictCheck = hasConflict(updates.meetings, courses, id);
+      if (conflictCheck.hasConflict) {
+        return NextResponse.json(
+          { error: conflictCheck.conflictInfo || "A course already exists at this time slot" },
           { status: 400 }
         );
       }
     }
 
     // Build the complete updated course object
-    const courseToUpdate = courses[courseIndex];
-    const updatedCourse = {
+    const updatedCourse: Course = {
       ...courseToUpdate,
       ...(updates.name !== undefined && { name: updates.name.trim() }),
-      ...(updates.dayOfWeek !== undefined && { dayOfWeek: updates.dayOfWeek }),
-      ...(updates.timeSlot !== undefined && { timeSlot: updates.timeSlot }),
-      ...(updates.location !== undefined && {
-        location: updates.location?.trim() || undefined,
-      }),
+      ...(updates.color !== undefined && { color: updates.color }),
       ...(updates.teacher !== undefined && {
         teacher: updates.teacher?.trim() || undefined,
       }),
-      ...(updates.color !== undefined && { color: updates.color }),
+      ...(updates.meetings !== undefined && {
+        meetings: updates.meetings.map((m: any) => ({
+          dayOfWeek: m.dayOfWeek,
+          timeSlots: m.timeSlots,
+          location: m.location?.trim() || undefined,
+        })),
+      }),
     };
 
     // Replace the course at the specific index
@@ -349,7 +368,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Ensure courses have id field
+    // Convert to plain objects
     const formattedCourses = (updatedUser.schedule?.courses || []).map((course: any) => {
       const courseObj = course.toObject ? course.toObject() : course;
       return {
@@ -379,14 +398,13 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authResult = await requireAuth(request, { requireUserId: true });
 
-    if (!session?.user?.userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const body = await request.json();
     const { id } = body;
@@ -400,25 +418,71 @@ export async function DELETE(request: NextRequest) {
 
     await connectDB();
 
-    const updatedUser = await User.findOneAndUpdate(
-      { userId: session.user.userId },
-      {
-        $pull: {
-          "schedule.courses": { id },
-        },
-      },
-      { new: true }
-    ).select("schedule");
-
-    if (!updatedUser) {
+    // Get the user first to find the course
+    const user = await User.findOne({ userId: session.user.userId });
+    if (!user) {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
       );
     }
 
-    // Ensure courses have id field
-    const courses = (updatedUser.schedule?.courses || []).map((course: any) => {
+    // Ensure schedule exists
+    if (!user.schedule) {
+      return NextResponse.json(
+        { error: "Schedule not found" },
+        { status: 404 }
+      );
+    }
+
+    const courses = (user.schedule.courses || []) as Course[];
+    
+    // Find the course index - check both id and _id, handle Mongoose documents
+    const courseIndex = courses.findIndex((course: any) => {
+      // Convert to plain object if it's a Mongoose document
+      const courseObj = course.toObject ? course.toObject() : course;
+      const courseId = courseObj.id || String(courseObj._id);
+      // Compare with the provided id (could be string or ObjectId)
+      return courseId === id || String(courseObj._id) === id || String(course._id) === id;
+    });
+
+    if (courseIndex === -1) {
+      // Debug logging
+      const courseIds = courses.map((c: any) => {
+        const cObj = c.toObject ? c.toObject() : c;
+        return cObj.id || String(cObj._id) || String(c._id);
+      });
+      console.error("Course not found. Looking for ID:", id);
+      console.error("Available course IDs:", courseIds);
+      console.error("Course objects:", courses.map((c: any) => {
+        const cObj = c.toObject ? c.toObject() : c;
+        return { id: cObj.id, _id: String(cObj._id || c._id) };
+      }));
+      return NextResponse.json(
+        { error: "Course not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Remove the course from the array
+    courses.splice(courseIndex, 1);
+
+    // Update the user with the modified courses array
+    const updatedUser = await User.findOneAndUpdate(
+      { userId: session.user.userId },
+      { $set: { "schedule.courses": courses } },
+      { new: true }
+    ).select("schedule");
+
+    if (!updatedUser) {
+      return NextResponse.json(
+        { error: "Failed to delete course" },
+        { status: 500 }
+      );
+    }
+
+    // Convert to plain objects
+    const formattedCourses = (updatedUser.schedule?.courses || []).map((course: any) => {
       const courseObj = course.toObject ? course.toObject() : course;
       return {
         ...courseObj,
@@ -428,7 +492,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      courses,
+      courses: formattedCourses,
     });
   } catch (error) {
     console.error("Error deleting course:", error);
@@ -438,4 +502,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
-

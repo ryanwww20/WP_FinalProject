@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { validateUserId } from '@/lib/validators';
+import { requireAuth } from '@/lib/middleware/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // This route doesn't require userId (user might be setting it for the first time)
+    const authResult = await requireAuth(req, { requireUserId: false });
+
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const session = authResult;
 
     const { userId } = await req.json();
 
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    // Validate userId
+    const validation = validateUserId(userId);
+    if (!validation.isValid) {
       return NextResponse.json(
-        { error: 'UserId is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate userId format (alphanumeric, underscore, hyphen, 3-30 chars)
-    const userIdRegex = /^[a-zA-Z0-9_-]{3,30}$/;
-    if (!userIdRegex.test(userId.trim())) {
-      return NextResponse.json(
-        { error: 'UserId must be 3-30 characters and contain only letters, numbers, underscores, or hyphens' },
+        { error: validation.error },
         { status: 400 }
       );
     }

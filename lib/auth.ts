@@ -62,19 +62,9 @@ export const authOptions: NextAuthOptions = {
             provider: provider 
           });
           
-          if (dbUser?.userId) {
-            // User exists and has userId - use userId as identifier
-            // User can directly login and will be redirected to home page
-            token.userId = dbUser.userId;
-            token.email = email;
-            token.provider = provider; // Store provider for subsequent lookups
-          } else {
-            // User doesn't exist or doesn't have userId yet
-            // Store email and provider temporarily for userId setup
-            token.userId = null;
-            token.email = email;
-            token.provider = provider;
-          }
+          token.email = email;
+          token.provider = provider;
+          token.userId = dbUser?.userId || null;
         } catch (error) {
           console.error('Error in jwt callback:', error);
         }

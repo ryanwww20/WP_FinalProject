@@ -1,5 +1,19 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
+export interface CourseMeeting {
+  dayOfWeek: number;      // 1–6 (Mon–Sat)
+  timeSlots: string[];    // e.g. ["1", "2"]
+  location?: string;      // can override per meeting if needed
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  color: string;          // Tailwind color class
+  teacher?: string;
+  meetings: CourseMeeting[];
+}
+
 export interface IUser extends Document {
   userId: string;
   name: string;
@@ -11,15 +25,7 @@ export interface IUser extends Document {
     lastUpdated?: Date;
   };
   schedule?: {
-    courses: Array<{
-      id: string;
-      name: string;
-      dayOfWeek: number; // 1-6 (Monday-Saturday)
-      timeSlot: string; // "0", "1", "2", ..., "9", "A", "B", "C", "D"
-      location?: string;
-      teacher?: string;
-      color: string; // Tailwind color class
-    }>;
+    courses: Course[];
   };
   studyStats?: {
     today: number; // minutes
@@ -87,27 +93,38 @@ const UserSchema: Schema<IUser> = new Schema(
             type: String,
             required: true,
           },
-          dayOfWeek: {
-            type: Number,
-            required: true,
-            min: 1,
-            max: 6, // Monday-Saturday
-          },
-          timeSlot: {
-            type: String,
-            required: true,
-            enum: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D'],
-          },
-          location: {
-            type: String,
-          },
-          teacher: {
-            type: String,
-          },
           color: {
             type: String,
             required: true,
           },
+          teacher: {
+            type: String,
+          },
+          meetings: [
+            {
+              dayOfWeek: {
+                type: Number,
+                required: true,
+                min: 1,
+                max: 6, // Monday-Saturday
+              },
+              timeSlots: {
+                type: [String],
+                required: true,
+                validate: {
+                  validator: function(v: string[]) {
+                    return v.length > 0 && v.every(slot => 
+                      ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D'].includes(slot)
+                    );
+                  },
+                  message: 'timeSlots must be a non-empty array of valid time slot values',
+                },
+              },
+              location: {
+                type: String,
+              },
+            },
+          ],
         },
       ],
     },
