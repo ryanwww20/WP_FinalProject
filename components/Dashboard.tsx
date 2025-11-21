@@ -96,7 +96,7 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-blue-500">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-2xl">📅</span> Deadlines Today
+              <span className="text-2xl">📅</span> Schedule Today
             </h2>
             <span className="text-xs font-medium px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full">
               {loading ? "..." : `${todaysEvents.length} Events`}
@@ -137,7 +137,7 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500 dark:text-gray-400">
-                  No deadlines or events scheduled for today.
+                  No events scheduled for today.
                 </p>
                 <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
                   Enjoy your free time!

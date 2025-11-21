@@ -6,9 +6,10 @@ import User from '@/models/User';
 export async function GET() {
   try {
     // Connect to database
-    const connection = await connectDB();
+    const mongooseInstance = await connectDB();
+    const connection = mongooseInstance.connection;
     
-    if (connection.readyState !== 1) {
+    if (connection.readyState !== 1 || !connection.db) {
       return NextResponse.json(
         { error: 'MongoDB connection failed', readyState: connection.readyState },
         { status: 500 }
@@ -41,7 +42,7 @@ export async function GET() {
 
     // List all databases
     try {
-      const adminDb = connection.db.admin();
+      const adminDb = currentDb.admin();
       const dbList = await adminDb.listDatabases();
       info.databases = dbList.databases.map((db: any) => ({
         name: db.name,
