@@ -2,21 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* 基礎背景與文字 */
+    --background: 0 0% 100%;      /* #ffffff */
+    --foreground: 222.2 84% 4.9%; /* #020817 - 深藍黑文字 */
+
+    /* 主色 (Primary) - 用於主要按鈕、重點文字 */
+    --primary: 221.2 83.2% 53.3%; /* #2563EB - Blue 600 */
+    --primary-foreground: 210 40% 98%; /* #f8fafc - 用於主色背景上的文字 */
+
+    /* 次色 (Secondary) - 用於次要元素、漸層 */
+    --secondary: 262.1 83.3% 57.8%; /* #9333ea - Purple 600 */
+    --secondary-foreground: 210 40% 98%;
+
+    /* 卡片與容器背景 */
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    
+    /* 邊框與分隔線 */
+    --border: 214.3 31.8% 91.4%; /* Gray 200 */
+    
+    /* 靜音/次要文字 (Muted) */
+    --muted: 210 40% 96.1%;      /* Gray 100 */
+    --muted-foreground: 215.4 16.3% 46.9%; /* Gray 500 */
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%; /* #020817 */
+    --foreground: 210 40% 98%;    /* #f8fafc */
+
+    --primary: 217.2 91.2% 59.8%; /* Blue 500 equivalent */
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 263.4 70% 50.4%; /* Purple 500 equivalent */
+    --secondary-foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
   }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  @apply bg-background text-foreground;
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -25,5 +58,3 @@ body {
     text-wrap: balance;
   }
 }
-
-

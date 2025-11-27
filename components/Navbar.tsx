@@ -46,12 +46,12 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow-md transition-colors duration-200">
+    <nav className="bg-card shadow-sm border-b border-border transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link
             href="/"
-            className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+            className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
           >
             WP Final Project
           </Link>
@@ -61,7 +61,7 @@ export default function Navbar() {
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                 title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               >
                 {theme === "dark" ? (
@@ -100,7 +100,7 @@ export default function Navbar() {
               <>
                 <button
                   onClick={() => router.push("/calendar")}
-                  className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                   title="Calendar"
                 >
                   <svg
@@ -126,21 +126,21 @@ export default function Navbar() {
                       <img
                         src={session.user.image}
                         alt={session.user.name || "User"}
-                        className="w-8 h-8 rounded-full"
+                        className="w-8 h-8 rounded-full border border-border"
                       />
                     )}
                     <div className="hidden sm:block text-left">
-                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <div className="text-sm font-medium text-foreground">
                         {session.user.name}
                       </div>
                       {session.user.userId && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                        <div className="text-xs text-muted-foreground font-mono">
                           {session.user.userId}
                         </div>
                       )}
                     </div>
                     <svg
-                      className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${
+                      className={`w-4 h-4 text-muted-foreground transition-transform ${
                         isDropdownOpen ? "rotate-180" : ""
                       }`}
                       fill="none"
@@ -158,10 +158,10 @@ export default function Navbar() {
 
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-50">
                       <button
                         onClick={handleProfileClick}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                        className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-2"
                       >
                         <svg
                           className="w-4 h-4"
@@ -180,7 +180,7 @@ export default function Navbar() {
                       </button>
                       <button
                         onClick={handleLogoutClick}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-muted transition-colors flex items-center gap-2"
                       >
                         <svg
                           className="w-4 h-4"
@@ -204,7 +204,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/auth/signin"
-                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg hover:shadow-lg transition-all"
+                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:shadow-lg transition-all hover:bg-primary/90"
               >
                 Sign In
               </Link>
