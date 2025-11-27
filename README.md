@@ -1,4 +1,4 @@
-# WP Final Project
+ㄑ# WP Final Project
 
 A modern full-stack web application built with **Next.js 14**, **Tailwind CSS**, **MongoDB**, and **OAuth 2.0** authentication.
 

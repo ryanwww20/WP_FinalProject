@@ -1,6 +1,7 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
 export interface IEvent extends Document {
+  _id: mongoose.Types.ObjectId;
   userId: string;
   title: string;
   startTime: Date;
