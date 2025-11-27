@@ -1,16 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, startOfDay, addDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, startOfDay, addDays, addHours } from "date-fns";
 import EventFormModal from "./EventFormModal";
 import type { IEvent } from "@/models/Event";
+import type { ITodo } from "@/models/Todo";
 
 type ViewMode = "monthly" | "weekly";
+
+// Extended event type that includes todos
+interface CalendarItem {
+  _id: string;
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  type: "event" | "todo";
+  completed?: boolean;
+  location?: string;
+  description?: string;
+}
 
 export default function CalendarClient() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
   const [events, setEvents] = useState<IEvent[]>([]);
+  const [todos, setTodos] = useState<ITodo[]>([]);
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<IEvent | null>(null);
@@ -38,16 +52,27 @@ export default function CalendarClient() {
         endDate = weekEnd;
       }
 
-      const response = await fetch(
-        `/api/calendar?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
-      );
+      // Fetch both events and todos
+      const [eventsResponse, todosResponse] = await Promise.all([
+        fetch(
+          `/api/calendar?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+        ),
+        fetch(
+          `/api/todos?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+        ),
+      ]);
 
-      if (response.ok) {
-        const data = await response.json();
-        setEvents(data.events || []);
+      if (eventsResponse.ok) {
+        const eventsData = await eventsResponse.json();
+        setEvents(eventsData.events || []);
+      }
+
+      if (todosResponse.ok) {
+        const todosData = await todosResponse.json();
+        setTodos(todosData.todos || []);
       }
     } catch (error) {
-      console.error("Error fetching events:", error);
+      console.error("Error fetching events and todos:", error);
     } finally {
       setLoading(false);
     }
@@ -122,6 +147,54 @@ export default function CalendarClient() {
     }
   };
 
+  // Convert todos to calendar items for display
+  const getCalendarItemsForDate = (date: Date): CalendarItem[] => {
+    const items: CalendarItem[] = [];
+
+    // Add events
+    events
+      .filter((event) => {
+        const eventDate = startOfDay(new Date(event.startTime));
+        const compareDate = startOfDay(date);
+        return isSameDay(eventDate, compareDate);
+      })
+      .forEach((event) => {
+        items.push({
+          _id: event._id.toString(),
+          title: event.title,
+          startTime: new Date(event.startTime),
+          endTime: new Date(event.endTime),
+          type: "event",
+          location: event.location,
+          description: event.description,
+        });
+      });
+
+    // Add todos
+    todos
+      .filter((todo) => {
+        const todoDate = startOfDay(new Date(todo.dueDate));
+        const compareDate = startOfDay(date);
+        return isSameDay(todoDate, compareDate);
+      })
+      .forEach((todo) => {
+        const dueDate = new Date(todo.dueDate);
+        const endDate = addHours(dueDate, 1);
+
+        items.push({
+          _id: todo._id.toString(),
+          title: todo.title,
+          startTime: dueDate,
+          endTime: endDate,
+          type: "todo",
+          completed: todo.completed,
+          description: todo.description,
+        });
+      });
+
+    return items;
+  };
+
   const getEventsForDate = (date: Date): IEvent[] => {
     return events.filter((event) => {
       const eventDate = startOfDay(new Date(event.startTime));
@@ -151,7 +224,7 @@ export default function CalendarClient() {
           </div>
         ))}
         {days.map((day) => {
-          const dayEvents = getEventsForDate(day);
+          const dayItems = getCalendarItemsForDate(day);
           const isCurrentMonth = isSameMonth(day, currentDate);
           const isToday = isSameDay(day, new Date());
 
@@ -175,21 +248,47 @@ export default function CalendarClient() {
                 {format(day, "d")}
               </div>
               <div className="space-y-1">
-                {dayEvents.slice(0, 3).map((event) => (
+                {dayItems.slice(0, 3).map((item) => (
                   <div
-                    key={event._id.toString()}
+                    key={`${item.type}-${item._id}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleEventClick(event);
+                      if (item.type === "event") {
+                        const event = events.find((e) => e._id.toString() === item._id);
+                        if (event) handleEventClick(event);
+                      }
                     }}
-                    className="text-xs p-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded truncate cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800"
+                    className={`text-xs p-1 rounded truncate cursor-pointer ${
+                      item.type === "todo"
+                        ? item.completed
+                          ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 line-through"
+                          : "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"
+                        : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                    } ${
+                      item.type === "todo" && !item.completed
+                        ? "hover:bg-purple-200 dark:hover:bg-purple-800"
+                        : item.type === "event"
+                        ? "hover:bg-blue-200 dark:hover:bg-blue-800"
+                        : ""
+                    }`}
                   >
-                    {format(new Date(event.startTime), "HH:mm")} {event.title}
+                    {item.type === "todo" ? (
+                      <span className="flex items-center gap-1">
+                        <span>✓</span>
+                        <span>
+                          {format(new Date(item.startTime), "HH:mm")} {item.title}
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        {format(new Date(item.startTime), "HH:mm")} {item.title}
+                      </>
+                    )}
                   </div>
                 ))}
-                {dayEvents.length > 3 && (
+                {dayItems.length > 3 && (
                   <div className="text-xs text-gray-500">
-                    +{dayEvents.length - 3} more
+                    +{dayItems.length - 3} more
                   </div>
                 )}
               </div>
@@ -257,9 +356,10 @@ export default function CalendarClient() {
                 })()}
               </div>
               {weekDays.map((day) => {
-                const dayEvents = getEventsForDate(day).filter((event) => {
-                  const eventHour = new Date(event.startTime).getHours();
-                  return eventHour === hour;
+                const dayItems = getCalendarItemsForDate(day);
+                const hourItems = dayItems.filter((item) => {
+                  const itemHour = new Date(item.startTime).getHours();
+                  return itemHour === hour;
                 });
 
                 return (
@@ -290,16 +390,40 @@ export default function CalendarClient() {
                         : ""
                     }`}
                   >
-                    {dayEvents.map((event) => (
+                    {hourItems.map((item) => (
                       <div
-                        key={event._id.toString()}
+                        key={`${item.type}-${item._id}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleEventClick(event);
+                          if (item.type === "event") {
+                            const event = events.find((e) => e._id.toString() === item._id);
+                            if (event) handleEventClick(event);
+                          }
                         }}
-                        className="text-xs p-1 mb-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800"
+                        className={`text-xs p-1 mb-1 rounded cursor-pointer ${
+                          item.type === "todo"
+                            ? item.completed
+                              ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 line-through"
+                              : "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"
+                            : "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                        } ${
+                          item.type === "todo" && !item.completed
+                            ? "hover:bg-purple-200 dark:hover:bg-purple-800"
+                            : item.type === "event"
+                            ? "hover:bg-blue-200 dark:hover:bg-blue-800"
+                            : ""
+                        }`}
                       >
-                        {event.title}
+                        {item.type === "todo" ? (
+                          <span className="flex items-center gap-1">
+                            <span>✓</span>
+                            <span>
+                              {format(new Date(item.startTime), "HH:mm")} {item.title}
+                            </span>
+                          </span>
+                        ) : (
+                          item.title
+                        )}
                       </div>
                     ))}
                   </div>
@@ -312,11 +436,13 @@ export default function CalendarClient() {
     );
   };
 
-  // Render right side panel with events for selected date
+  // Render right side panel with events and todos for selected date
   const renderEventSidebar = () => {
     if (!selectedDateForView) return null;
 
-    const dayEvents = getEventsForDate(selectedDateForView);
+    const dayItems = getCalendarItemsForDate(selectedDateForView);
+    const dayEvents = dayItems.filter((item) => item.type === "event");
+    const dayTodos = dayItems.filter((item) => item.type === "todo");
 
     return (
       <div className="w-full lg:w-1/4 border-l border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
@@ -345,9 +471,127 @@ export default function CalendarClient() {
         </div>
 
         <div className="space-y-3">
-          {dayEvents.length === 0 ? (
+          {/* Todos Section */}
+          {dayTodos.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Todos
+              </h3>
+              {dayTodos.map((item) => {
+                const todo = todos.find((t) => t._id.toString() === item._id);
+                if (!todo) return null;
+                return (
+                  <div
+                    key={`todo-${item._id}`}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-purple-200 dark:border-purple-700 shadow-sm mb-2"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`mt-1 w-4 h-4 rounded border-2 flex items-center justify-center ${
+                        todo.completed
+                          ? "bg-green-500 border-green-500"
+                          : "border-gray-300 dark:border-gray-500"
+                      }`}>
+                        {todo.completed && (
+                          <svg
+                            className="w-2 h-2 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className={`font-semibold text-gray-900 dark:text-white ${
+                          todo.completed ? "line-through opacity-60" : ""
+                        }`}>
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          Due at {format(new Date(item.startTime), "HH:mm")}
+                        </p>
+                        {item.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Events Section */}
+          {dayEvents.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Events
+              </h3>
+              {dayEvents.map((item) => {
+                const event = events.find((e) => e._id.toString() === item._id);
+                if (!event) return null;
+                return (
+                  <div
+                    key={`event-${item._id}`}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700 shadow-sm mb-2"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                          {event.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {format(new Date(event.startTime), "HH:mm")} -{" "}
+                          {format(new Date(event.endTime), "HH:mm")}
+                        </p>
+                        {event.location && event.location !== "No Location" && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            📍 {event.location}
+                          </p>
+                        )}
+                        {event.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 line-clamp-2">
+                            {event.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setSelectedDate(new Date(event.startTime));
+                          setIsEventFormOpen(true);
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEvent(event._id.toString())}
+                        className="flex-1 px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {dayItems.length === 0 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <p className="mb-2">No events for this day</p>
+              <p className="mb-2">No events or todos for this day</p>
               <button
                 onClick={() => {
                   setSelectedDate(selectedDateForView);
@@ -359,53 +603,6 @@ export default function CalendarClient() {
                 Create event
               </button>
             </div>
-          ) : (
-            dayEvents.map((event) => (
-              <div
-                key={event._id.toString()}
-                className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700 shadow-sm"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                      {event.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {format(new Date(event.startTime), "HH:mm")} -{" "}
-                      {format(new Date(event.endTime), "HH:mm")}
-                    </p>
-                    {event.location && event.location !== "No Location" && (
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        📍 {event.location}
-                      </p>
-                    )}
-                    {event.description && (
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 line-clamp-2">
-                        {event.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      setSelectedDate(new Date(event.startTime));
-                      setIsEventFormOpen(true);
-                    }}
-                    className="flex-1 px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteEvent(event._id.toString())}
-                    className="flex-1 px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))
           )}
         </div>
       </div>
