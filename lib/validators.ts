@@ -1,5 +1,6 @@
 import { TIME_SLOTS, DAY_OF_WEEK_MIN, DAY_OF_WEEK_MAX, VALIDATION_RULES } from './constants';
 import { CourseMeeting } from '@/models/User';
+import { z } from 'zod';
 
 /**
  * Validation result type
@@ -209,4 +210,55 @@ export function validateCourseColor(color: unknown): ValidationResult {
 
   return { isValid: true };
 }
+
+// ==================== Group Validators (using Zod) ====================
+
+/**
+ * Schema for creating a group
+ */
+export const createGroupSchema = z.object({
+  name: z.string().min(1, 'Group name is required').max(100, 'Group name cannot exceed 100 characters').trim(),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').trim().optional(),
+  coverImage: z.string().url('Invalid image URL').optional().or(z.literal('')),
+  visibility: z.enum(['public', 'private']).default('private'),
+  password: z.string().min(4, 'Password must be at least 4 characters').max(50, 'Password cannot exceed 50 characters').optional().or(z.literal('')),
+  maxMembers: z.number().int().min(2, 'Group must allow at least 2 members').max(1000, 'Group cannot exceed 1000 members').optional(),
+  requireApproval: z.boolean().default(false),
+});
+
+/**
+ * Schema for updating a group
+ */
+export const updateGroupSchema = z.object({
+  name: z.string().min(1, 'Group name is required').max(100, 'Group name cannot exceed 100 characters').trim().optional(),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').trim().optional().or(z.literal('')),
+  coverImage: z.string().url('Invalid image URL').optional().or(z.literal('')),
+  visibility: z.enum(['public', 'private']).optional(),
+  password: z.string().min(4, 'Password must be at least 4 characters').max(50, 'Password cannot exceed 50 characters').optional().or(z.literal('')),
+  maxMembers: z.number().int().min(2).max(1000).optional(),
+  requireApproval: z.boolean().optional(),
+});
+
+/**
+ * Schema for joining a group
+ */
+export const joinGroupSchema = z.object({
+  inviteCode: z.string().min(1, 'Invite code is required').trim().toUpperCase(),
+  password: z.string().optional(), // required only if group has password
+});
+
+/**
+ * Schema for sending a message
+ */
+export const createMessageSchema = z.object({
+  content: z.string().min(1, 'Message content is required').max(2000, 'Message cannot exceed 2000 characters').trim(),
+  messageType: z.enum(['text', 'system']).default('text'),
+});
+
+/**
+ * Schema for updating member role
+ */
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(['owner', 'admin', 'member']),
+});
 
