@@ -10,11 +10,11 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
-  visibility: "public" | "private";
   memberCount: number;
   inviteCode: string;
   maxMembers?: number;
   requireApproval: boolean;
+  hasPassword?: boolean; // true if group has password (private), false if no password (public)
   createdAt: string;
 }
 
@@ -47,6 +47,11 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
       if (response.ok) {
         const data = await response.json();
         setGroupData(data);
+      } else if (response.status === 403) {
+        // Private group requires password - redirect to groups list
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData.error || "This group requires a password. Please join the group first.");
+        router.push("/groups");
       } else if (response.status === 404) {
         router.push("/groups");
       } else if (response.status === 401) {

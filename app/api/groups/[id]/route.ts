@@ -50,29 +50,36 @@ export async function GET(
     });
 
     if (!membership) {
-      // User is not a member - return limited info for public groups
-      if (group.visibility === 'public') {
+      // User is not a member - check if group is public (no password)
+      const isPublic = !group.password || group.password.trim().length === 0;
+      
+      if (isPublic) {
+        // Public group - return limited info
         const publicInfo = {
           _id: group._id,
           name: group.name,
           description: group.description,
           coverImage: group.coverImage,
-          visibility: group.visibility,
           memberCount: group.memberCount,
           createdAt: group.createdAt,
+          inviteCode: group.inviteCode,
+          hasPassword: false, // Public group has no password
         };
         return NextResponse.json({ group: publicInfo, isMember: false }, { status: 200 });
       } else {
+        // Private group (has password) - require password or membership
         return NextResponse.json(
-          { error: 'Group not found or access denied' },
-          { status: 404 }
+          { error: 'This group requires a password. Please join the group first.' },
+          { status: 403 }
         );
       }
     }
 
     // User is a member - return full info (except password)
     const groupResponse = group.toObject();
+    const hasPassword = !!(group.password && group.password.trim().length > 0);
     delete groupResponse.password;
+    groupResponse.hasPassword = hasPassword; // Add hasPassword flag
 
     return NextResponse.json({
       group: groupResponse,
@@ -150,25 +157,24 @@ export async function PUT(
 
     // Only owner can change certain settings
     if (membership.role !== 'owner') {
-      // Admins can't change ownerId, visibility, or password
-      if (body.visibility !== undefined || body.password !== undefined) {
+      // Admins can't change password
+      if (body.password !== undefined) {
         return NextResponse.json(
-          { error: 'Only group owner can change visibility and password' },
+          { error: 'Only group owner can change password' },
           { status: 403 }
         );
       }
     }
 
     const updateData: any = {};
+    const unsetData: any = {};
+    
     if (validationResult.data.name !== undefined) updateData.name = validationResult.data.name;
     if (validationResult.data.description !== undefined) {
       updateData.description = validationResult.data.description === '' ? undefined : validationResult.data.description;
     }
     if (validationResult.data.coverImage !== undefined) {
       updateData.coverImage = validationResult.data.coverImage === '' ? undefined : validationResult.data.coverImage;
-    }
-    if (validationResult.data.visibility !== undefined && membership.role === 'owner') {
-      updateData.visibility = validationResult.data.visibility;
     }
     if (validationResult.data.maxMembers !== undefined) updateData.maxMembers = validationResult.data.maxMembers;
     if (validationResult.data.requireApproval !== undefined) updateData.requireApproval = validationResult.data.requireApproval;
@@ -177,20 +183,33 @@ export async function PUT(
     if (validationResult.data.password !== undefined && membership.role === 'owner') {
       if (validationResult.data.password && validationResult.data.password.trim().length > 0) {
         updateData.password = await bcrypt.hash(validationResult.data.password, 10);
+        // If we're setting a password, make sure to unset the unset operation if it exists
+        delete unsetData.password;
       } else {
-        // Empty string means remove password
-        updateData.password = undefined;
+        // Empty string means remove password - use $unset to properly remove the field
+        unsetData.password = "";
       }
+    }
+
+    // Build the update query
+    const updateQuery: any = {};
+    if (Object.keys(updateData).length > 0) {
+      updateQuery.$set = updateData;
+    }
+    if (Object.keys(unsetData).length > 0) {
+      updateQuery.$unset = unsetData;
     }
 
     const updatedGroup = await Group.findByIdAndUpdate(
       params.id,
-      updateData,
+      updateQuery,
       { new: true }
     );
 
     const groupResponse = updatedGroup!.toObject();
+    const hasPassword = !!(updatedGroup!.password && updatedGroup!.password.trim().length > 0);
     delete groupResponse.password;
+    groupResponse.hasPassword = hasPassword; // Add hasPassword flag
 
     return NextResponse.json({ group: groupResponse }, { status: 200 });
   } catch (error) {
