@@ -56,7 +56,6 @@ export default function SettingsTab({
     coverImage: group.coverImage || "",
     password: "",
     maxMembers: group.maxMembers?.toString() || "",
-    requireApproval: group.requireApproval,
   });
   const [removePassword, setRemovePassword] = useState(false);
 
@@ -95,7 +94,6 @@ export default function SettingsTab({
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        requireApproval: formData.requireApproval,
       };
 
       if (formData.coverImage.trim()) {
@@ -395,28 +393,6 @@ export default function SettingsTab({
                 min={2}
                 max={1000}
               />
-            </div>
-
-            {/* Require Approval */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="requireApproval"
-                checked={formData.requireApproval}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    requireApproval: e.target.checked,
-                  }))
-                }
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <label
-                htmlFor="requireApproval"
-                className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-              >
-                Require approval for new members
-              </label>
             </div>
 
             <div className="flex justify-end pt-4">
