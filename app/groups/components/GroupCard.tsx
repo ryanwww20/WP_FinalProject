@@ -6,7 +6,8 @@ interface GroupCardProps {
     name: string;
     description?: string;
     coverImage?: string;
-    visibility: "public" | "private";
+    isPublic?: boolean; // true if no password
+    hasPassword?: boolean; // true if has password
     memberCount: number;
     role?: "owner" | "admin" | "member";
   };
@@ -97,7 +98,7 @@ export default function GroupCard({ group, onClick }: GroupCardProps) {
             <span>{group.memberCount} member{group.memberCount !== 1 ? "s" : ""}</span>
           </div>
           <div className="flex items-center gap-1">
-            {group.visibility === "public" ? (
+            {group.isPublic || !group.hasPassword ? (
               <>
                 <svg
                   className="w-4 h-4"

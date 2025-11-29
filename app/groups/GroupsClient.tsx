@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import GroupCard from "./components/GroupCard";
 import CreateGroupModal from "./components/CreateGroupModal";
 import JoinGroupModal from "./components/JoinGroupModal";
+import PasswordPromptModal from "./components/PasswordPromptModal";
 
 interface Group {
   _id: string;
   name: string;
   description?: string;
   coverImage?: string;
-  visibility: "public" | "private";
+  isPublic: boolean; // true if no password, false if has password
+  hasPassword: boolean;
   memberCount: number;
+  inviteCode: string;
   createdAt: string;
   role?: "owner" | "admin" | "member";
 }
@@ -24,6 +27,7 @@ export default function GroupsClient() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [passwordModalGroup, setPasswordModalGroup] = useState<Group | null>(null);
 
   useEffect(() => {
     fetchGroups();
@@ -32,7 +36,8 @@ export default function GroupsClient() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/groups");
+      // Fetch all groups (public listing)
+      const response = await fetch("/api/groups/public");
 
       if (response.ok) {
         const data = await response.json();
@@ -47,8 +52,60 @@ export default function GroupsClient() {
     }
   };
 
-  const handleGroupClick = (groupId: string) => {
-    router.push(`/groups/${groupId}`);
+  const handleGroupClick = async (group: Group) => {
+    // If user is already a member, allow direct access
+    if (group.role) {
+      router.push(`/groups/${group._id}`);
+      return;
+    }
+
+    // If group is public (no password), allow direct access
+    if (group.isPublic) {
+      router.push(`/groups/${group._id}`);
+      return;
+    }
+
+    // If group is private (has password), show password prompt
+    if (group.hasPassword) {
+      setPasswordModalGroup(group);
+      return;
+    }
+
+    // Default: try to access
+    router.push(`/groups/${group._id}`);
+  };
+
+  const handlePasswordSubmit = async (password: string) => {
+    if (!passwordModalGroup) return;
+
+    try {
+      // Try to join the group with the password
+      const response = await fetch(`/api/groups/${passwordModalGroup._id}/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inviteCode: passwordModalGroup.inviteCode || "",
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Successfully joined, navigate to group
+        setPasswordModalGroup(null);
+        router.push(`/groups/${passwordModalGroup._id}`);
+        fetchGroups(); // Refresh groups list
+      } else {
+        // Show error in modal
+        alert(data.error || "Invalid password");
+      }
+    } catch (error) {
+      console.error("Error joining group:", error);
+      alert("Failed to join group. Please try again.");
+    }
   };
 
   const filteredGroups = groups.filter((group) =>
@@ -148,7 +205,7 @@ export default function GroupsClient() {
                   <GroupCard
                     key={group._id}
                     group={group}
-                    onClick={() => handleGroupClick(group._id)}
+                    onClick={() => handleGroupClick(group)}
                   />
                 ))}
               </div>
@@ -204,6 +261,14 @@ export default function GroupsClient() {
               setIsJoinModalOpen(false);
               fetchGroups();
             }}
+          />
+        )}
+
+        {passwordModalGroup && (
+          <PasswordPromptModal
+            groupName={passwordModalGroup.name}
+            onClose={() => setPasswordModalGroup(null)}
+            onSuccess={handlePasswordSubmit}
           />
         )}
       </div>
