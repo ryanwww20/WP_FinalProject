@@ -13,9 +13,9 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
-  visibility: "public" | "private";
   memberCount: number;
   inviteCode: string;
+  hasPassword?: boolean; // true if group has password (private), false if no password (public)
 }
 
 interface Membership {

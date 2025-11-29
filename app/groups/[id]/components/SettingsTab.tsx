@@ -8,7 +8,6 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
-  visibility: "public" | "private";
   memberCount: number;
   inviteCode: string;
   maxMembers?: number;
@@ -55,11 +54,11 @@ export default function SettingsTab({
     name: group.name,
     description: group.description || "",
     coverImage: group.coverImage || "",
-    visibility: group.visibility,
     password: "",
     maxMembers: group.maxMembers?.toString() || "",
     requireApproval: group.requireApproval,
   });
+  const [removePassword, setRemovePassword] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +95,6 @@ export default function SettingsTab({
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        visibility: formData.visibility,
         requireApproval: formData.requireApproval,
       };
 
@@ -107,11 +105,14 @@ export default function SettingsTab({
       }
 
       if (membership?.role === "owner") {
-        if (formData.password.trim()) {
+        // Handle password: if removePassword is checked, send empty string to clear it
+        // If password is provided, send it. Otherwise, don't send password field (no change)
+        if (removePassword) {
+          payload.password = ""; // Empty string to remove password
+        } else if (formData.password.trim()) {
           payload.password = formData.password.trim();
-        } else if (formData.password === "") {
-          payload.password = ""; // Remove password
         }
+        // If neither condition is true, don't include password in payload (no change)
       }
 
       if (formData.maxMembers && parseInt(formData.maxMembers) > 0) {
@@ -136,6 +137,7 @@ export default function SettingsTab({
 
       setSuccess("Group settings updated successfully!");
       setFormData((prev) => ({ ...prev, password: "" })); // Clear password field
+      setRemovePassword(false); // Reset remove password checkbox
       onUpdate();
     } catch (error: any) {
       setError(error.message || "Failed to update group settings");
@@ -329,45 +331,52 @@ export default function SettingsTab({
               />
             </div>
 
-            {/* Visibility (Owner only) */}
-            {isOwner && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Visibility
-                </label>
-                <select
-                  value={formData.visibility}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      visibility: e.target.value as "public" | "private",
-                    }))
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="private">Private (Invite only)</option>
-                  <option value="public">Public (Searchable)</option>
-                </select>
-              </div>
-            )}
-
             {/* Password (Owner only) */}
             {isOwner && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Password (Leave empty to remove)
+                  Group Password
                 </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Groups with a password are private. Groups without a password are public.
+                </p>
                 <input
                   type="password"
                   value={formData.password}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, password: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setFormData((prev) => ({ ...prev, password: e.target.value }));
+                    // Uncheck remove password if user starts typing
+                    if (e.target.value.trim()) {
+                      setRemovePassword(false);
+                    }
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter new password or leave empty"
+                  placeholder="Enter new password"
                   minLength={4}
                   maxLength={50}
+                  disabled={removePassword}
                 />
+                <div className="mt-2 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="removePassword"
+                    checked={removePassword}
+                    onChange={(e) => {
+                      setRemovePassword(e.target.checked);
+                      // Clear password field when checking remove
+                      if (e.target.checked) {
+                        setFormData((prev) => ({ ...prev, password: "" }));
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <label
+                    htmlFor="removePassword"
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    Remove password (make group public)
+                  </label>
+                </div>
               </div>
             )}
 

@@ -233,8 +233,10 @@ export const updateGroupSchema = z.object({
   name: z.string().min(1, 'Group name is required').max(100, 'Group name cannot exceed 100 characters').trim().optional(),
   description: z.string().max(500, 'Description cannot exceed 500 characters').trim().optional().or(z.literal('')),
   coverImage: z.string().url('Invalid image URL').optional().or(z.literal('')),
-  visibility: z.enum(['public', 'private']).optional(),
-  password: z.string().min(4, 'Password must be at least 4 characters').max(50, 'Password cannot exceed 50 characters').optional().or(z.literal('')),
+  password: z.union([
+    z.string().min(4, 'Password must be at least 4 characters').max(50, 'Password cannot exceed 50 characters'),
+    z.literal(''), // Allow empty string to remove password
+  ]).optional(),
   maxMembers: z.number().int().min(2).max(1000).optional(),
   requireApproval: z.boolean().optional(),
 });

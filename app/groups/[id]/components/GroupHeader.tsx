@@ -8,9 +8,9 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
-  visibility: "public" | "private";
   memberCount: number;
   inviteCode: string;
+  hasPassword?: boolean; // true if group has password (private), false if no password (public)
 }
 
 interface Membership {
@@ -112,12 +112,12 @@ export default function GroupHeader({
               )}
               <span
                 className={`px-3 py-1 text-sm font-medium rounded-full ${
-                  group.visibility === "public"
+                  !group.hasPassword
                     ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                     : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
                 }`}
               >
-                {group.visibility === "public" ? "Public" : "Private"}
+                {!group.hasPassword ? "Public" : "Private"}
               </span>
             </div>
 
