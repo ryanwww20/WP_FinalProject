@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import OverviewTab from "./OverviewTab";
 import SettingsTab from "./SettingsTab";
+import ChatTab from "./ChatTab";
 // Placeholder components for other tabs (will be implemented in later phases)
-// import ChatTab from "./ChatTab";
 // import RankingTab from "./RankingTab";
 // import MapTab from "./MapTab";
 
@@ -93,10 +93,7 @@ export default function GroupTabs({
           <OverviewTab groupId={groupId} group={group} membership={membership} isMember={isMember} />
         )}
         {activeTab === "chat" && (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <p className="text-lg mb-2">Chat feature coming soon</p>
-            <p className="text-sm">This will be implemented in Phase 4</p>
-          </div>
+          <ChatTab groupId={groupId} isMember={isMember} />
         )}
         {activeTab === "ranking" && (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
