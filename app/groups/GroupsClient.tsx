@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import GroupCard from "./components/GroupCard";
 import CreateGroupModal from "./components/CreateGroupModal";
-import JoinGroupModal from "./components/JoinGroupModal";
 import PasswordPromptModal from "./components/PasswordPromptModal";
 
 interface Group {
@@ -25,7 +24,6 @@ export default function GroupsClient() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [passwordModalGroup, setPasswordModalGroup] = useState<Group | null>(null);
 
@@ -79,15 +77,15 @@ export default function GroupsClient() {
     if (!passwordModalGroup) return;
 
     try {
-      // Try to join the group with the password
+      // Try to join the private group with the password
       const response = await fetch(`/api/groups/${passwordModalGroup._id}/join`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          inviteCode: passwordModalGroup.inviteCode || "",
           password: password,
+          // No invite code needed - removed from UI
         }),
       });
 
@@ -122,25 +120,6 @@ export default function GroupsClient() {
             Groups
           </h1>
           <div className="flex gap-2">
-            <button
-              onClick={() => setIsJoinModalOpen(true)}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                />
-              </svg>
-              Join Group
-            </button>
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -224,12 +203,6 @@ export default function GroupsClient() {
                     </p>
                     <div className="flex gap-2 justify-center">
                       <button
-                        onClick={() => setIsJoinModalOpen(true)}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                        Join Group
-                      </button>
-                      <button
                         onClick={() => setIsCreateModalOpen(true)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       >
@@ -249,16 +222,6 @@ export default function GroupsClient() {
             onClose={() => setIsCreateModalOpen(false)}
             onSuccess={() => {
               setIsCreateModalOpen(false);
-              fetchGroups();
-            }}
-          />
-        )}
-
-        {isJoinModalOpen && (
-          <JoinGroupModal
-            onClose={() => setIsJoinModalOpen(false)}
-            onSuccess={() => {
-              setIsJoinModalOpen(false);
               fetchGroups();
             }}
           />

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import GroupHeader from "./components/GroupHeader";
 import GroupTabs from "./components/GroupTabs";
+import PasswordPromptModal from "../components/PasswordPromptModal";
 
 interface Group {
   _id: string;
@@ -34,6 +35,7 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
   const [groupData, setGroupData] = useState<GroupDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "chat" | "ranking" | "map" | "settings">("overview");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     fetchGroupData();
@@ -47,11 +49,10 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
       if (response.ok) {
         const data = await response.json();
         setGroupData(data);
-      } else if (response.status === 403) {
-        // Private group requires password - redirect to groups list
-        const errorData = await response.json().catch(() => ({}));
-        alert(errorData.error || "This group requires a password. Please join the group first.");
-        router.push("/groups");
+        // If it's a private group and user is not a member, show password modal
+        if (!data.isMember && data.group.hasPassword) {
+          setShowPasswordModal(true);
+        }
       } else if (response.status === 404) {
         router.push("/groups");
       } else if (response.status === 401) {
@@ -73,6 +74,35 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
       </div>
     );
   }
+
+  const handlePasswordSubmit = async (password: string) => {
+    if (!groupData) return;
+
+    try {
+      const response = await fetch(`/api/groups/${groupId}/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Successfully joined, refresh group data
+        setShowPasswordModal(false);
+        fetchGroupData();
+      } else {
+        alert(data.error || "Invalid password");
+      }
+    } catch (error) {
+      console.error("Error joining group:", error);
+      alert("Failed to join group. Please try again.");
+    }
+  };
 
   if (!groupData) {
     return (
@@ -112,6 +142,18 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
           onGroupUpdate={fetchGroupData}
         />
       </div>
+
+      {/* Password Modal for Private Groups */}
+      {showPasswordModal && groupData && !groupData.isMember && (
+        <PasswordPromptModal
+          groupName={groupData.group.name}
+          onClose={() => {
+            setShowPasswordModal(false);
+            router.push("/groups");
+          }}
+          onSuccess={handlePasswordSubmit}
+        />
+      )}
     </div>
   );
 }
