@@ -13,6 +13,8 @@ interface Group {
   visibility: "public" | "private";
   memberCount: number;
   inviteCode: string;
+  maxMembers?: number;
+  requireApproval: boolean;
   createdAt: string;
 }
 
@@ -102,6 +104,7 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
           group={groupData.group}
           membership={groupData.membership}
           isMember={groupData.isMember}
+          onGroupUpdate={fetchGroupData}
         />
       </div>
     </div>

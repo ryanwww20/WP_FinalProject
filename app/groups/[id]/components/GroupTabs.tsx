@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import OverviewTab from "./OverviewTab";
+import SettingsTab from "./SettingsTab";
 // Placeholder components for other tabs (will be implemented in later phases)
 // import ChatTab from "./ChatTab";
 // import RankingTab from "./RankingTab";
 // import MapTab from "./MapTab";
-// import SettingsTab from "./SettingsTab";
 
 interface Group {
   _id: string;
@@ -30,6 +30,7 @@ interface GroupTabsProps {
   group: Group;
   membership?: Membership;
   isMember: boolean;
+  onGroupUpdate?: () => void;
 }
 
 export default function GroupTabs({
@@ -39,6 +40,7 @@ export default function GroupTabs({
   group,
   membership,
   isMember,
+  onGroupUpdate,
 }: GroupTabsProps) {
   useEffect(() => {
     const handleSwitchTab = (event: CustomEvent) => {
@@ -109,10 +111,12 @@ export default function GroupTabs({
           </div>
         )}
         {activeTab === "settings" && (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <p className="text-lg mb-2">Settings feature coming soon</p>
-            <p className="text-sm">This will be implemented in Phase 3 (Settings Tab)</p>
-          </div>
+          <SettingsTab
+            groupId={groupId}
+            group={group}
+            membership={membership}
+            onUpdate={onGroupUpdate || (() => window.location.reload())}
+          />
         )}
       </div>
     </div>
