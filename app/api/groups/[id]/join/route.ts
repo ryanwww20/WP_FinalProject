@@ -26,7 +26,7 @@ export async function POST(
 
     const body = await request.json();
     
-    // Validate input
+    // Validate input (inviteCode is optional, password is optional)
     const validationResult = joinGroupSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
@@ -35,7 +35,7 @@ export async function POST(
       );
     }
 
-    const { inviteCode, password } = validationResult.data;
+    const { inviteCode, password } = validationResult.data || {};
 
     await connectDB();
 
@@ -47,26 +47,23 @@ export async function POST(
       );
     }
 
-    // Find group by ID or invite code
-    let group = await Group.findById(params.id);
+    // Find group by ID
+    const group = await Group.findById(params.id);
     
-    // If not found by ID, try invite code
     if (!group) {
-      group = await Group.findOne({ inviteCode: inviteCode.toUpperCase() });
-      if (!group) {
-        return NextResponse.json(
-          { error: 'Group not found' },
-          { status: 404 }
-        );
-      }
-    } else {
-      // If found by ID, verify invite code matches
-      if (group.inviteCode !== inviteCode.toUpperCase()) {
-        return NextResponse.json(
-          { error: 'Invalid invite code' },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Group not found' },
+        { status: 404 }
+      );
+    }
+
+    // Invite code verification (optional - kept for future use but not required in UI)
+    // If invite code is provided, verify it matches (for future use)
+    if (inviteCode && group.inviteCode !== inviteCode.toUpperCase()) {
+      return NextResponse.json(
+        { error: 'Invalid invite code' },
+        { status: 400 }
+      );
     }
 
     // Check if user is already a member

@@ -50,29 +50,21 @@ export async function GET(
     });
 
     if (!membership) {
-      // User is not a member - check if group is public (no password)
+      // User is not a member - return limited info for both public and private groups
+      // This allows UI to show group info and join button/password prompt
       const isPublic = !group.password || group.password.trim().length === 0;
       
-      if (isPublic) {
-        // Public group - return limited info
-        const publicInfo = {
-          _id: group._id,
-          name: group.name,
-          description: group.description,
-          coverImage: group.coverImage,
-          memberCount: group.memberCount,
-          createdAt: group.createdAt,
-          inviteCode: group.inviteCode,
-          hasPassword: false, // Public group has no password
-        };
-        return NextResponse.json({ group: publicInfo, isMember: false }, { status: 200 });
-      } else {
-        // Private group (has password) - require password or membership
-        return NextResponse.json(
-          { error: 'This group requires a password. Please join the group first.' },
-          { status: 403 }
-        );
-      }
+      const limitedInfo = {
+        _id: group._id,
+        name: group.name,
+        description: group.description,
+        coverImage: group.coverImage,
+        memberCount: group.memberCount,
+        createdAt: group.createdAt,
+        inviteCode: group.inviteCode,
+        hasPassword: !isPublic, // true if has password (private), false if no password (public)
+      };
+      return NextResponse.json({ group: limitedInfo, isMember: false }, { status: 200 });
     }
 
     // User is a member - return full info (except password)
