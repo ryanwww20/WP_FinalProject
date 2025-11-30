@@ -1,22 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { usePusherChannel } from "@/lib/hooks/usePusherChannel";
+import type { Message } from "@/lib/pusher-types";
+import { addMessageIfNotExists } from "@/lib/message-utils";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
-
-interface Message {
-  _id: string;
-  userId: string;
-  content: string;
-  messageType: "text" | "system";
-  createdAt: string;
-  user?: {
-    name: string;
-    image?: string;
-    userId: string;
-  };
-}
 
 interface ChatTabProps {
   groupId: string;
@@ -25,11 +15,11 @@ interface ChatTabProps {
 
 export default function ChatTab({ groupId, isMember }: ChatTabProps) {
   const { data: session } = useSession();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [fetchedMessages, setFetchedMessages] = useState<Message[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const currentUserId = session?.user?.userId;
 
@@ -41,47 +31,44 @@ export default function ChatTab({ groupId, isMember }: ChatTabProps) {
       const response = await fetch(`/api/groups/${groupId}/messages?limit=50`);
       if (response.ok) {
         const data = await response.json();
-        setMessages(data.messages || []);
-        setError(null);
+        setFetchedMessages(data.messages || []);
+        setApiError(null);
       } else {
         throw new Error("Failed to fetch messages");
       }
     } catch (err) {
-      console.error("Error fetching messages:", err);
-      setError("Failed to load messages");
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error fetching messages:", err);
+      }
+      setApiError("Failed to load messages");
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial fetch
+  // Initial fetch - load message history
   useEffect(() => {
     if (isMember) {
       fetchMessages();
     }
   }, [groupId, isMember]);
 
-  // Poll for new messages every 3 seconds
-  useEffect(() => {
-    if (isMember) {
-      pollingIntervalRef.current = setInterval(() => {
-        fetchMessages();
-      }, 3000);
+  // Use Pusher channel hook for real-time updates
+  const { messages: pusherMessages, error: pusherError } = usePusherChannel({
+    groupId,
+    isMember,
+    initialMessages: fetchedMessages,
+  });
 
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
-      };
-    }
-  }, [groupId, isMember]);
+  // Combine all errors
+  const error = apiError || pusherError || sendError;
 
   // Send message
   const handleSendMessage = async (content: string) => {
     if (!isMember || sending) return;
 
     setSending(true);
-    setError(null);
+    setSendError(null);
 
     try {
       const response = await fetch(`/api/groups/${groupId}/messages`, {
@@ -98,18 +85,20 @@ export default function ChatTab({ groupId, isMember }: ChatTabProps) {
       const data = await response.json();
 
       if (response.ok) {
-        // Add the new message optimistically
+        // Add the new message optimistically for instant feedback
+        // Pusher will deliver the message via real-time event
+        // If Pusher fails, the optimistic update still shows the message
         if (data.message) {
-          setMessages((prev) => [data.message, ...prev]);
+          setFetchedMessages((prev) => addMessageIfNotExists(prev, data.message));
         }
-        // Refresh messages to get the latest state
-        await fetchMessages();
       } else {
         throw new Error(data.error || "Failed to send message");
       }
     } catch (err: any) {
-      console.error("Error sending message:", err);
-      setError(err.message || "Failed to send message");
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error sending message:", err);
+      }
+      setSendError(err.message || "Failed to send message");
     } finally {
       setSending(false);
     }
@@ -141,11 +130,10 @@ export default function ChatTab({ groupId, isMember }: ChatTabProps) {
       )}
 
       {/* Messages List */}
-      <MessageList messages={messages} currentUserId={currentUserId} />
+      <MessageList messages={pusherMessages} currentUserId={currentUserId || undefined} />
 
       {/* Message Input */}
       <MessageInput onSend={handleSendMessage} disabled={sending} />
     </div>
   );
 }
-
