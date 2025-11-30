@@ -281,7 +281,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const courses = (user.schedule?.courses || []) as Course[];
-    const courseIndex = courses.findIndex((course: any) => course.id === id);
+    
+    // Convert courses to plain objects to ensure we can access the id field properly
+    const coursesPlain = courses.map((course: any) => {
+      const courseObj = course.toObject ? course.toObject() : course;
+      return {
+        ...courseObj,
+        id: courseObj.id || String(courseObj._id) || `temp_${Date.now()}_${Math.random()}`,
+      };
+    });
+    
+    const courseIndex = coursesPlain.findIndex((course: any) => course.id === id);
 
     if (courseIndex === -1) {
       return NextResponse.json(
@@ -290,7 +300,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const courseToUpdate = courses[courseIndex];
+    const courseToUpdate = coursesPlain[courseIndex];
 
     // Validate name if provided
     if (updates.name !== undefined) {
@@ -324,8 +334,8 @@ export async function PUT(request: NextRequest) {
         );
       }
 
-      // Check for conflicts with other courses
-      const conflictCheck = hasConflict(updates.meetings, courses, id);
+      // Check for conflicts with other courses (use coursesPlain to ensure proper id comparison)
+      const conflictCheck = hasConflict(updates.meetings, coursesPlain, id);
       if (conflictCheck.hasConflict) {
         return NextResponse.json(
           { error: conflictCheck.conflictInfo || "A course already exists at this time slot" },
@@ -335,7 +345,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build the complete updated course object
+    // IMPORTANT: Explicitly preserve the id field to prevent it from being lost
     const updatedCourse: Course = {
+      id: courseToUpdate.id, // Explicitly preserve the id
       ...courseToUpdate,
       ...(updates.name !== undefined && { name: updates.name.trim() }),
       ...(updates.color !== undefined && { color: updates.color }),
@@ -352,12 +364,14 @@ export async function PUT(request: NextRequest) {
     };
 
     // Replace the course at the specific index
-    courses[courseIndex] = updatedCourse;
+    // Use coursesPlain and update the specific course to ensure all courses are plain objects
+    const updatedCourses = [...coursesPlain];
+    updatedCourses[courseIndex] = updatedCourse;
 
     // Update the entire courses array
     const updatedUser = await User.findOneAndUpdate(
       { userId: session.user.userId },
-      { $set: { "schedule.courses": courses } },
+      { $set: { "schedule.courses": updatedCourses } },
       { new: true }
     ).select("schedule");
 

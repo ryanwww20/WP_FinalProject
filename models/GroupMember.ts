@@ -1,0 +1,89 @@
+import mongoose, { Document, Model, Schema } from 'mongoose';
+
+export interface IGroupMember extends Document {
+  groupId: mongoose.Types.ObjectId;
+  userId: string; // userId (not ObjectId, to match User model)
+  role: 'owner' | 'admin' | 'member';
+  joinedAt: Date;
+  lastActiveAt: Date;
+  // Stats for ranking
+  totalStudyTime: number; // total minutes studied in this group
+  pomodoroCount: number; // total pomodoros completed in this group
+  // Weekly stats for ranking
+  weeklyStats: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const GroupMemberSchema: Schema<IGroupMember> = new Schema(
+  {
+    groupId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Group',
+      required: [true, 'Please provide a group ID'],
+    },
+    userId: {
+      type: String,
+      required: [true, 'Please provide a user ID'],
+      trim: true,
+      lowercase: true,
+    },
+    role: {
+      type: String,
+      enum: ['owner', 'admin', 'member'],
+      default: 'member',
+    },
+    joinedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    lastActiveAt: {
+      type: Date,
+      default: Date.now,
+    },
+    totalStudyTime: {
+      type: Number,
+      default: 0, // minutes
+      min: 0,
+    },
+    pomodoroCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    weeklyStats: {
+      monday: { type: Number, default: 0 },
+      tuesday: { type: Number, default: 0 },
+      wednesday: { type: Number, default: 0 },
+      thursday: { type: Number, default: 0 },
+      friday: { type: Number, default: 0 },
+      saturday: { type: Number, default: 0 },
+      sunday: { type: Number, default: 0 },
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Create compound unique index to prevent duplicate memberships
+GroupMemberSchema.index({ groupId: 1, userId: 1 }, { unique: true });
+
+// Create indexes for efficient queries
+GroupMemberSchema.index({ userId: 1 });
+GroupMemberSchema.index({ groupId: 1, role: 1 });
+
+// Prevent model recompilation during hot reload
+const GroupMember: Model<IGroupMember> =
+  mongoose.models.GroupMember || mongoose.model<IGroupMember>('GroupMember', GroupMemberSchema);
+
+export default GroupMember;
+
