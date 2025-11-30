@@ -6,6 +6,8 @@ import Group from '@/models/Group';
 import GroupMember from '@/models/GroupMember';
 import GroupMessage from '@/models/GroupMessage';
 import User from '@/models/User';
+import { publishToChannel } from '@/lib/pusher';
+import { getGroupChannel, PUSHER_EVENTS } from '@/lib/pusher-constants';
 import mongoose from 'mongoose';
 
 // GET /api/groups/[id]/messages - Get messages for a group
@@ -93,7 +95,9 @@ export async function GET(
 
     return NextResponse.json({ messages: enrichedMessages }, { status: 200 });
   } catch (error) {
-    console.error('Error fetching messages:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching messages:', error);
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -184,9 +188,32 @@ export async function POST(
       user: user || { name: session.user.name || 'Unknown', userId: session.user.userId },
     };
 
+    // Publish to Pusher for real-time updates
+    try {
+      const channel = getGroupChannel(params.id);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📤 [API] Publishing message to channel: ${channel}, groupId: ${params.id}`);
+      }
+      const published = await publishToChannel(channel, PUSHER_EVENTS.NEW_MESSAGE, messageResponse);
+      if (process.env.NODE_ENV === 'development') {
+        if (published) {
+          console.log(`✅ [API] Message published successfully to ${channel}`);
+        } else {
+          console.warn(`⚠️  [API] Failed to publish message to ${channel}`);
+        }
+      }
+    } catch (error) {
+      // Don't fail message creation if Pusher fails
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [API] Error publishing message to Pusher:', error);
+      }
+    }
+
     return NextResponse.json({ message: messageResponse }, { status: 201 });
   } catch (error) {
-    console.error('Error creating message:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error creating message:', error);
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

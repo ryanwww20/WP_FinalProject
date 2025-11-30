@@ -86,6 +86,13 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 # GitHub OAuth (optional)
 GITHUB_ID=your-github-client-id
 GITHUB_SECRET=your-github-client-secret
+
+# Pusher (for real-time features)
+# Get credentials from: https://dashboard.pusher.com/apps/<your-app-id>/keys
+NEXT_PUBLIC_PUSHER_APP_ID=your_app_id
+NEXT_PUBLIC_PUSHER_KEY=your_key
+NEXT_PUBLIC_PUSHER_CLUSTER=your_cluster
+PUSHER_SECRET=your_secret
 ```
 
 ### 4. Generate NextAuth Secret
