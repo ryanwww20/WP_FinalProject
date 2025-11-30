@@ -7,6 +7,8 @@ import GroupMember from '@/models/GroupMember';
 import GroupMessage from '@/models/GroupMessage';
 import User from '@/models/User';
 import { updateMemberRoleSchema } from '@/lib/validators';
+import { publishToChannel } from '@/lib/pusher';
+import { getGroupChannel, PUSHER_EVENTS } from '@/lib/pusher-constants';
 import mongoose from 'mongoose';
 
 // PUT /api/groups/[id]/members/[memberId] - Update member role or remove member
@@ -101,17 +103,39 @@ export async function PUT(
 
     // Create system message
     try {
-      const requesterUser = await User.findOne({ userId: session.user.userId }).select('name').lean();
-      const targetUser = await User.findOne({ userId: targetMember.userId }).select('name').lean();
+      const requesterUser = await User.findOne({ userId: session.user.userId }).select('name image').lean();
+      const targetUser = await User.findOne({ userId: targetMember.userId }).select('name image').lean();
       
-      await GroupMessage.create({
+      const systemMessage = await GroupMessage.create({
         groupId: params.id,
         userId: session.user.userId,
         content: `${requesterUser?.name || session.user.userId} changed ${targetUser?.name || targetMember.userId}'s role to ${validationResult.data.role}`,
         messageType: 'system',
       });
+
+      const messageResponse = {
+        ...systemMessage.toObject(),
+        _id: systemMessage._id.toString(),
+        user: requesterUser || { name: session.user.name || 'Unknown', userId: session.user.userId },
+      };
+
+      // Publish to Pusher for real-time updates
+      try {
+        const channel = getGroupChannel(params.id);
+        const published = await publishToChannel(channel, PUSHER_EVENTS.NEW_MESSAGE, messageResponse);
+        if (!published && process.env.NODE_ENV === 'development') {
+          console.warn(`⚠️  [API] Failed to publish role change message to ${channel}`);
+        }
+      } catch (error) {
+        // Don't fail if Pusher publish fails
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ [API] Error publishing role change message to Pusher:', error);
+        }
+      }
     } catch (error) {
-      console.error('Error creating system message:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error creating system message:', error);
+      }
     }
 
     return NextResponse.json(
@@ -119,7 +143,9 @@ export async function PUT(
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error updating member:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error updating member:', error);
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -210,17 +236,39 @@ export async function DELETE(
 
     // Create system message
     try {
-      const requesterUser = await User.findOne({ userId: session.user.userId }).select('name').lean();
-      const targetUser = await User.findOne({ userId: targetMember.userId }).select('name').lean();
+      const requesterUser = await User.findOne({ userId: session.user.userId }).select('name image').lean();
+      const targetUser = await User.findOne({ userId: targetMember.userId }).select('name image').lean();
       
-      await GroupMessage.create({
+      const systemMessage = await GroupMessage.create({
         groupId: params.id,
         userId: session.user.userId,
         content: `${targetUser?.name || targetMember.userId} was removed from the group by ${requesterUser?.name || session.user.userId}`,
         messageType: 'system',
       });
+
+      const messageResponse = {
+        ...systemMessage.toObject(),
+        _id: systemMessage._id.toString(),
+        user: requesterUser || { name: session.user.name || 'Unknown', userId: session.user.userId },
+      };
+
+      // Publish to Pusher for real-time updates
+      try {
+        const channel = getGroupChannel(params.id);
+        const published = await publishToChannel(channel, PUSHER_EVENTS.NEW_MESSAGE, messageResponse);
+        if (!published && process.env.NODE_ENV === 'development') {
+          console.warn(`⚠️  [API] Failed to publish member removal message to ${channel}`);
+        }
+      } catch (error) {
+        // Don't fail if Pusher publish fails
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ [API] Error publishing member removal message to Pusher:', error);
+        }
+      }
     } catch (error) {
-      console.error('Error creating system message:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error creating system message:', error);
+      }
     }
 
     return NextResponse.json(
@@ -228,7 +276,9 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error removing member:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error removing member:', error);
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
