@@ -19,6 +19,13 @@ export interface IGroupMember extends Document {
     saturday: number;
     sunday: number;
   };
+  // Location for map feature
+  location?: {
+    lat: number;
+    lng: number;
+    address?: string;
+    updatedAt: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +74,24 @@ const GroupMemberSchema: Schema<IGroupMember> = new Schema(
       friday: { type: Number, default: 0 },
       saturday: { type: Number, default: 0 },
       sunday: { type: Number, default: 0 },
+    },
+    location: {
+      lat: {
+        type: Number,
+        required: false,
+      },
+      lng: {
+        type: Number,
+        required: false,
+      },
+      address: {
+        type: String,
+        required: false,
+      },
+      updatedAt: {
+        type: Date,
+        default: Date.now,
+      },
     },
   },
   {

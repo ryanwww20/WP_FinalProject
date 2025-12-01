@@ -93,6 +93,11 @@ NEXT_PUBLIC_PUSHER_APP_ID=your_app_id
 NEXT_PUBLIC_PUSHER_KEY=your_key
 NEXT_PUBLIC_PUSHER_CLUSTER=your_cluster
 PUSHER_SECRET=your_secret
+
+# Google Maps API (for Map feature in groups)
+# Get API key from: https://console.cloud.google.com/
+# See GOOGLE_MAPS_SETUP.md for detailed setup instructions
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
 
 ### 4. Generate NextAuth Secret
@@ -116,6 +121,17 @@ Copy the output and paste it as the `NEXTAUTH_SECRET` value in `.env.local`.
 5. Set application type to "Web application"
 6. Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
 7. Copy the Client ID and Client Secret to `.env.local`
+
+### Google Maps API (for Map Feature)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the **Maps JavaScript API**
+4. Go to "Credentials" → "Create Credentials" → "API Key"
+5. (Recommended) Restrict the API key to your domain
+6. Copy the API Key to `.env.local` as `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+
+For detailed setup instructions, see [GOOGLE_MAPS_SETUP.md](./GOOGLE_MAPS_SETUP.md)
 
 ### GitHub OAuth
 

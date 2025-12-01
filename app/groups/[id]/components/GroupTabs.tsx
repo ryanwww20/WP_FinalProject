@@ -4,9 +4,10 @@ import { useEffect } from "react";
 import OverviewTab from "./OverviewTab";
 import SettingsTab from "./SettingsTab";
 import ChatTab from "./ChatTab";
+import MapTab from "./MapTab";
+import { useLoadScript } from "@react-google-maps/api";
 // Placeholder components for other tabs (will be implemented in later phases)
 // import RankingTab from "./RankingTab";
-// import MapTab from "./MapTab";
 
 interface Group {
   _id: string;
@@ -42,6 +43,13 @@ export default function GroupTabs({
   isMember,
   onGroupUpdate,
 }: GroupTabsProps) {
+  // 在 GroupTabs 層級預載入 Google Maps 腳本，避免切換標籤時重複載入
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  const { isLoaded: isMapScriptLoaded } = useLoadScript({
+    googleMapsApiKey: apiKey,
+    id: "google-map-script",
+  });
+
   useEffect(() => {
     const handleSwitchTab = (event: CustomEvent) => {
       onTabChange(event.detail);
@@ -101,12 +109,10 @@ export default function GroupTabs({
             <p className="text-sm">This will be implemented in Phase 5</p>
           </div>
         )}
-        {activeTab === "map" && (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <p className="text-lg mb-2">Map feature coming soon</p>
-            <p className="text-sm">This will be implemented in Phase 6</p>
-          </div>
-        )}
+        {/* Map Tab - 始終渲染但隱藏，避免重複載入腳本 */}
+        <div style={{ display: activeTab === "map" ? "block" : "none" }}>
+          <MapTab groupId={groupId} isScriptLoaded={isMapScriptLoaded} />
+        </div>
         {activeTab === "settings" && (
           <SettingsTab
             groupId={groupId}
