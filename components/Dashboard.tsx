@@ -186,254 +186,380 @@ export default function Dashboard() {
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
 
+  // Check if in focus mode (running + work mode)
+  const isFocusMode = isRunning && timerMode === "work";
+
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 p-4 animate-in fade-in duration-500">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-primary">
-            Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {session.user?.name?.split(' ')[0]}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Here's what's happening today, {format(new Date(), "MMMM do")}
-          </p>
-        </div>
-        <Link 
-          href="/calendar"
-          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow transition-colors flex items-center gap-2 text-sm font-medium"
-        >
-          <span>View Full Calendar</span>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
+    <>
+      {/* Focus Mode Overlay - Always rendered, controlled by CSS */}
+      <div 
+        className={`fixed inset-0 bg-gray-950 z-40 flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
+          isFocusMode 
+            ? 'opacity-100 pointer-events-auto' 
+            : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Subtle background pattern */}
+        <div className={`absolute inset-0 transition-opacity duration-700 ${isFocusMode ? 'opacity-5' : 'opacity-0'}`}>
+          <div className="absolute inset-0" style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '40px 40px'
+          }} />
       </div>
+      
+        {/* Main Content */}
+        <div className={`relative z-10 text-center transition-all duration-700 ease-out ${
+          isFocusMode 
+            ? 'opacity-100 scale-100 translate-y-0' 
+            : 'opacity-0 scale-95 translate-y-8'
+        }`}>
+          {/* Focus Mode Label */}
+          <div className={`mb-8 transition-all duration-500 delay-200 ${isFocusMode ? 'opacity-100' : 'opacity-0'}`}>
+            <span className="text-primary/80 text-sm font-medium tracking-widest uppercase animate-pulse">
+              Focus Mode
+            </span>
+          </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Left Column - Pomodoro Timer */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-card rounded-xl shadow-sm border border-border p-8">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-foreground mb-6">Pomodoro Timer</h2>
-              
-              {/* Mode Selector */}
-              <div className="flex justify-center gap-2 mb-8">
-                <button
-                  onClick={() => switchMode("work")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    timerMode === "work"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+          {/* Timer Display - Enlarged */}
+          <div className={`relative w-80 h-80 md:w-96 md:h-96 mx-auto mb-12 transition-all duration-700 ${
+            isFocusMode ? 'scale-100' : 'scale-75'
+          }`}>
+            <svg className="w-full h-full transform -rotate-90">
+              <circle
+                cx="50%"
+                cy="50%"
+                r="45%"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+                className="text-gray-800"
+              />
+              <circle
+                cx="50%"
+                cy="50%"
+                r="45%"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="none"
+                strokeDasharray={`${2 * Math.PI * 45}%`}
+                strokeDashoffset={`${2 * Math.PI * 45 * (1 - timeLeft / TIMER_SETTINGS[timerMode])}%`}
+                strokeLinecap="round"
+                className="text-primary transition-all duration-1000"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-7xl md:text-8xl font-light text-white tabular-nums tracking-tight">
+                {formatTime(timeLeft)}
+              </span>
+              <span className={`text-gray-500 text-sm mt-4 tracking-wide transition-opacity duration-500 delay-300 ${
+                isFocusMode ? 'opacity-100' : 'opacity-0'
+              }`}>
+                Stay focused
+              </span>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className={`flex justify-center gap-6 transition-all duration-500 delay-100 ${
+            isFocusMode ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}>
+            <button
+              onClick={toggleTimer}
+              className="px-10 py-4 rounded-full text-xl font-medium bg-orange-500 hover:bg-orange-600 text-white transition-all duration-300 hover:scale-105 shadow-lg shadow-orange-500/20"
+            >
+              Pause
+            </button>
+            <button
+              onClick={resetTimer}
+              className="px-8 py-4 rounded-full text-xl font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all duration-300 hover:scale-105"
+            >
+              Reset
+            </button>
+        </div>
+
+          {/* Completed Pomodoros */}
+          <div className={`mt-12 flex items-center justify-center gap-3 transition-all duration-500 delay-200 ${
+            isFocusMode ? 'opacity-100' : 'opacity-0'
+          }`}>
+            <div className="flex gap-2">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                    i < completedPomodoros % 4
+                      ? "bg-primary"
+                      : "bg-gray-700"
                   }`}
-                >
-                  Focus
-                </button>
-                <button
-                  onClick={() => switchMode("shortBreak")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    timerMode === "shortBreak"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  Short Break
-                </button>
-                <button
-                  onClick={() => switchMode("longBreak")}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    timerMode === "longBreak"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  Long Break
-                </button>
+                />
+              ))}
+            </div>
+            <span className="text-gray-500 text-sm">
+              {completedPomodoros} completed
+            </span>
+          </div>
+        </div>
+
+        {/* Exit hint */}
+        <div className={`absolute bottom-8 text-gray-600 text-sm transition-all duration-500 delay-500 ${
+          isFocusMode ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        }`}>
+          Press <span className="text-gray-400">Pause</span> to exit focus mode
+        </div>
+          </div>
+          
+      {/* Main Dashboard Content */}
+      <div className={`w-full max-w-6xl mx-auto space-y-8 p-4 transition-all duration-700 ease-in-out ${
+        isFocusMode 
+          ? 'opacity-0 scale-95 pointer-events-none' 
+          : 'opacity-100 scale-100 pointer-events-auto'
+      }`}>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-primary">
+              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {session.user?.name?.split(' ')[0]}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Here's what's happening today, {format(new Date(), "MMMM do")}
+            </p>
+          </div>
+          <Link 
+            href="/calendar"
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow transition-colors flex items-center gap-2 text-sm font-medium"
+          >
+            <span>View Full Calendar</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
               </div>
 
-              {/* Timer Display */}
-              <div className="relative w-64 h-64 mx-auto mb-8">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="128"
-                    cy="128"
-                    r="120"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    className="text-muted"
-                  />
-                  <circle
-                    cx="128"
-                    cy="128"
-                    r="120"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={2 * Math.PI * 120}
-                    strokeDashoffset={
-                      2 * Math.PI * 120 * (1 - timeLeft / TIMER_SETTINGS[timerMode])
-                    }
-                    strokeLinecap="round"
-                    className={`transition-all duration-1000 ${
-                      timerMode === "work" ? "text-primary" : "text-green-500"
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Left Column - Pomodoro Timer */}
+          <div className="md:col-span-2 space-y-6">
+            <div className="bg-card rounded-xl shadow-sm border border-border p-8">
+              <div className="text-center">
+                <h2 className="text-lg font-semibold text-foreground mb-6">Pomodoro Timer</h2>
+                
+                {/* Mode Selector */}
+                <div className="flex justify-center gap-2 mb-8">
+                  <button
+                    onClick={() => switchMode("work")}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timerMode === "work"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
                     }`}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-5xl font-bold text-foreground tabular-nums">
-                    {formatTime(timeLeft)}
-                  </span>
-                  <span className="text-sm text-muted-foreground mt-2 capitalize">
-                    {timerMode === "work" ? "Focus Time" : timerMode === "shortBreak" ? "Short Break" : "Long Break"}
-                  </span>
+                  >
+                    Focus
+                  </button>
+                  <button
+                    onClick={() => switchMode("shortBreak")}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timerMode === "shortBreak"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Short Break
+                  </button>
+                  <button
+                    onClick={() => switchMode("longBreak")}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timerMode === "longBreak"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Long Break
+                  </button>
                 </div>
-              </div>
 
-              {/* Controls */}
-              <div className="flex justify-center gap-4">
-                <button
-                  onClick={toggleTimer}
-                  className={`px-8 py-3 rounded-full text-lg font-semibold transition-all ${
-                    isRunning
-                      ? "bg-orange-500 hover:bg-orange-600 text-white"
-                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                  }`}
-                >
-                  {isRunning ? "Pause" : "Start"}
-                </button>
-                <button
-                  onClick={resetTimer}
-                  className="px-6 py-3 rounded-full text-lg font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
-                >
-                  Reset
-                </button>
-              </div>
-
-              {/* Completed Pomodoros */}
-              <div className="mt-8 flex items-center justify-center gap-2">
-                <span className="text-sm text-muted-foreground">Completed today:</span>
-                <div className="flex gap-1">
-                  {[...Array(4)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-3 h-3 rounded-full ${
-                        i < completedPomodoros % 4
-                          ? "bg-primary"
-                          : "bg-muted"
+                {/* Timer Display */}
+                <div className="relative w-64 h-64 mx-auto mb-8">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle
+                      cx="128"
+                      cy="128"
+                      r="120"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      className="text-muted"
+                    />
+                    <circle
+                      cx="128"
+                      cy="128"
+                      r="120"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={2 * Math.PI * 120}
+                      strokeDashoffset={
+                        2 * Math.PI * 120 * (1 - timeLeft / TIMER_SETTINGS[timerMode])
+                      }
+                      strokeLinecap="round"
+                      className={`transition-all duration-1000 ${
+                        timerMode === "work" ? "text-primary" : "text-green-500"
                       }`}
                     />
-                  ))}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-5xl font-bold text-foreground tabular-nums">
+                      {formatTime(timeLeft)}
+                    </span>
+                    <span className="text-sm text-muted-foreground mt-2 capitalize">
+                      {timerMode === "work" ? "Focus Time" : timerMode === "shortBreak" ? "Short Break" : "Long Break"}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-sm font-medium text-foreground">{completedPomodoros}</span>
+
+                {/* Controls */}
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={toggleTimer}
+                    className={`px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 ${
+                      isRunning
+                        ? "bg-orange-500 hover:bg-orange-600 text-white"
+                        : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    }`}
+                  >
+                    {isRunning ? "Pause" : "Start"}
+                  </button>
+                  <button
+                    onClick={resetTimer}
+                    className="px-6 py-3 rounded-full text-lg font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {/* Completed Pomodoros */}
+                <div className="mt-8 flex items-center justify-center gap-2">
+                  <span className="text-sm text-muted-foreground">Completed today:</span>
+                  <div className="flex gap-1">
+                    {[...Array(4)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                          i < completedPomodoros % 4
+                            ? "bg-primary"
+                            : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{completedPomodoros}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Column - Schedule & Stats (Sticky) */}
-        <div className="space-y-4">
-          <div className="sticky top-20 space-y-6">
-            {/* Today's Schedule */}
-            <div>
-              <h2 className="text-lg font-semibold text-foreground mb-3">Today's Schedule</h2>
-              <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden max-h-[300px] overflow-y-auto">
-                {loading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  </div>
-                ) : scheduleItems.length > 0 ? (
-                  <div className="divide-y divide-border">
-                    {scheduleItems.map((item) => {
-                      const itemEnd = item.endTime
-                        ? new Date(item.endTime)
-                        : new Date(item.startTime);
-                      const isPast =
-                        item.type === "todo"
-                          ? item.completed || !isAfter(itemEnd, new Date())
-                          : !isAfter(itemEnd, new Date());
-                      return (
-                        <div
-                          key={`${item.type}-${item._id}`}
-                          className={`p-3 hover:bg-muted/50 transition-colors ${
-                            isPast ? "opacity-50" : ""
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <span className="text-xs font-mono text-muted-foreground min-w-[40px]">
-                              {format(new Date(item.startTime), "HH:mm")}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium truncate ${isPast ? "text-muted-foreground" : "text-foreground"}`}>
-                                {item.title}
-                              </p>
-                              <span
-                                className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                  item.type === "event"
-                                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200"
-                                    : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-200"
-                                }`}
-                              >
-                                {item.type === "event" ? "Event" : "Todo"}
+          {/* Right Column - Schedule & Stats (Sticky) */}
+          <div className="space-y-4">
+            <div className="sticky top-20 space-y-6">
+              {/* Today's Schedule */}
+              <div>
+                <h2 className="text-lg font-semibold text-foreground mb-3">Today's Schedule</h2>
+                <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  ) : scheduleItems.length > 0 ? (
+                    <div className="divide-y divide-border">
+                      {scheduleItems.map((item) => {
+                        const itemEnd = item.endTime
+                          ? new Date(item.endTime)
+                          : new Date(item.startTime);
+                        const isPast =
+                          item.type === "todo"
+                            ? item.completed || !isAfter(itemEnd, new Date())
+                            : !isAfter(itemEnd, new Date());
+                        return (
+                          <div
+                            key={`${item.type}-${item._id}`}
+                            className={`p-3 hover:bg-muted/50 transition-colors ${
+                              isPast ? "opacity-50" : ""
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className="text-xs font-mono text-muted-foreground min-w-[40px]">
+                                {format(new Date(item.startTime), "HH:mm")}
                               </span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium truncate ${isPast ? "text-muted-foreground" : "text-foreground"}`}>
+                                  {item.title}
+                                </p>
+                                <span
+                                  className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    item.type === "event"
+                                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200"
+                                      : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-200"
+                                  }`}
+                                >
+                                  {item.type === "event" ? "Event" : "Todo"}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center">
-                    <p className="text-sm text-muted-foreground">No schedule for today</p>
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center">
+                      <p className="text-sm text-muted-foreground">No schedule for today</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Overview Section */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Overview</h3>
-              <div className="space-y-3">
-                {/* Events Today */}
-                <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Events Today</p>
-                      <h3 className="text-xl font-bold text-foreground">{todaysEvents.length}</h3>
+              {/* Overview Section */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Overview</h3>
+                <div className="space-y-3">
+                  {/* Events Today */}
+                  <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Events Today</p>
+                        <h3 className="text-xl font-bold text-foreground">{todaysEvents.length}</h3>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Remaining */}
-                <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-secondary/10 text-secondary rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Remaining</p>
-                      <h3 className="text-xl font-bold text-foreground">{upcomingEventsCount}</h3>
+                  {/* Remaining */}
+                  <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-secondary/10 text-secondary rounded-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Remaining</p>
+                        <h3 className="text-xl font-bold text-foreground">{upcomingEventsCount}</h3>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Tasks */}
-                <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Tasks</p>
-                      <h3 className="text-xl font-bold text-foreground">{todaysTodos.length}</h3>
+                  {/* Tasks */}
+                  <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Tasks</p>
+                        <h3 className="text-xl font-bold text-foreground">{todaysTodos.length}</h3>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -442,6 +568,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
