@@ -248,13 +248,13 @@ export default function Dashboard() {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-7xl md:text-8xl font-light text-white tabular-nums tracking-tight">
+              <span className="text-7xl md:text-8xl font-bold text-white tabular-nums">
                 {formatTime(timeLeft)}
               </span>
-              <span className={`text-gray-500 text-sm mt-4 tracking-wide transition-opacity duration-500 delay-300 ${
+              <span className={`text-gray-500 text-sm mt-4 transition-opacity duration-500 delay-300 ${
                 isFocusMode ? 'opacity-100' : 'opacity-0'
               }`}>
-                Stay focused
+                Focus Time
               </span>
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function Dashboard() {
           }`}>
             <button
               onClick={toggleTimer}
-              className="px-10 py-4 rounded-full text-xl font-medium bg-orange-500 hover:bg-orange-600 text-white transition-all duration-300 hover:scale-105 shadow-lg shadow-orange-500/20"
+              className="px-10 py-4 rounded-full text-xl font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-all duration-300 hover:scale-105 shadow-lg shadow-orange-500/20"
             >
               Pause
             </button>
@@ -275,27 +275,6 @@ export default function Dashboard() {
             >
               Reset
             </button>
-        </div>
-
-          {/* Completed Pomodoros */}
-          <div className={`mt-12 flex items-center justify-center gap-3 transition-all duration-500 delay-200 ${
-            isFocusMode ? 'opacity-100' : 'opacity-0'
-          }`}>
-            <div className="flex gap-2">
-              {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-                    i < completedPomodoros % 4
-                      ? "bg-primary"
-                      : "bg-gray-700"
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-gray-500 text-sm">
-              {completedPomodoros} completed
-            </span>
           </div>
         </div>
 
