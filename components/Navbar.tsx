@@ -51,9 +51,9 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           <Link
             href="/"
-            className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
+            className="text-2xl font-bold bg-gradient-to-r text-primary bg-clip-text"
           >
-            WP Final Project
+            讀書有揪
           </Link>
 
           <div className="flex items-center space-x-4">
