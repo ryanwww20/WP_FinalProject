@@ -45,3 +45,4 @@ echo "5. Run: npm run dev"
 echo ""
 echo "📚 For OAuth setup instructions, see README.md"
 
+
