@@ -401,7 +401,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 onClick={() => handleMemberMarkerClick(memberLocation)}
                 icon={{
                   url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                  scaledSize: { width: 40, height: 40 },
                 }}
                 title={memberLocation.userName}
               />
@@ -419,7 +418,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                     : location.type === "cafe"
                     ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
                     : "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                  scaledSize: { width: 32, height: 32 },
                 }}
               />
             ))}

@@ -79,7 +79,7 @@ export async function GET(
       .lean();
 
     // Get user info for each message
-    const userIds = [...new Set(messages.map((msg: any) => msg.userId))];
+    const userIds = Array.from(new Set(messages.map((msg: any) => msg.userId)));
     const users = await User.find({ userId: { $in: userIds } })
       .select('userId name image')
       .lean();
@@ -184,7 +184,9 @@ export async function POST(
 
     const messageResponse = {
       ...message.toObject(),
-      _id: message._id.toString(),
+      _id: String(message._id),
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString(),
       user: user || { name: session.user.name || 'Unknown', userId: session.user.userId },
     };
 
