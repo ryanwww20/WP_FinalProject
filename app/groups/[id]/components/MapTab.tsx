@@ -447,7 +447,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 onMouseOut={handleMemberMarkerMouseOut}
                 icon={{
                   url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                  scaledSize: { width: 40, height: 40 },
                 }}
                 title={memberLocation.userName}
                 // 使用原生 Google Maps 事件
@@ -478,7 +477,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                     : location.type === "cafe"
                     ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
                     : "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                  scaledSize: { width: 32, height: 32 },
                 }}
               />
             ))}

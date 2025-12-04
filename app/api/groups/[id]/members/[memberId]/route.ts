@@ -115,7 +115,9 @@ export async function PUT(
 
       const messageResponse = {
         ...systemMessage.toObject(),
-        _id: systemMessage._id.toString(),
+        _id: String(systemMessage._id),
+        createdAt: systemMessage.createdAt.toISOString(),
+        updatedAt: systemMessage.updatedAt.toISOString(),
         user: requesterUser || { name: session.user.name || 'Unknown', userId: session.user.userId },
       };
 
@@ -248,7 +250,9 @@ export async function DELETE(
 
       const messageResponse = {
         ...systemMessage.toObject(),
-        _id: systemMessage._id.toString(),
+        _id: String(systemMessage._id),
+        createdAt: systemMessage.createdAt.toISOString(),
+        updatedAt: systemMessage.updatedAt.toISOString(),
         user: requesterUser || { name: session.user.name || 'Unknown', userId: session.user.userId },
       };
 

@@ -92,7 +92,9 @@ export async function POST(
 
       const messageResponse = {
         ...systemMessage.toObject(),
-        _id: systemMessage._id.toString(),
+        _id: String(systemMessage._id),
+        createdAt: systemMessage.createdAt.toISOString(),
+        updatedAt: systemMessage.updatedAt.toISOString(),
         user: user || { name: session.user.name || 'Unknown', userId: session.user.userId },
       };
 

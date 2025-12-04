@@ -68,7 +68,7 @@ export async function GET(
     }
 
     // User is a member - return full info (except password)
-    const groupResponse = group.toObject();
+    const groupResponse = group.toObject() as any;
     const hasPassword = !!(group.password && group.password.trim().length > 0);
     delete groupResponse.password;
     groupResponse.hasPassword = hasPassword; // Add hasPassword flag
@@ -198,7 +198,7 @@ export async function PUT(
       { new: true }
     );
 
-    const groupResponse = updatedGroup!.toObject();
+    const groupResponse = updatedGroup!.toObject() as any;
     const hasPassword = !!(updatedGroup!.password && updatedGroup!.password.trim().length > 0);
     delete groupResponse.password;
     groupResponse.hasPassword = hasPassword; // Add hasPassword flag

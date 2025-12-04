@@ -68,10 +68,13 @@ export const authOptions: NextAuthOptions = {
             await dbUser.save();
           }
           
-          // Store image in token so it's available in session callback
-          // This is important for users who haven't set userId yet
+          // Store user info in token so it's available in session callback
+          // This is important for users who haven't set userId yet and during build time
           if (user.image) {
             token.image = user.image;
+          }
+          if (user.name) {
+            token.name = user.name;
           }
           
           token.email = email;
@@ -117,7 +120,34 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        await connectDB();
+        // Skip database connection during build time if MONGODB_URI is not set
+        // This allows the build to succeed on Vercel
+        if (!process.env.MONGODB_URI) {
+          // Return basic session without database lookup during build
+          session.user.id = null;
+          session.user.userId = (typeof token.userId === 'string' ? token.userId : null);
+          session.user.name = (typeof token.name === 'string' ? token.name : undefined);
+          session.user.email = token.email || null;
+          session.user.image = (typeof token.image === 'string' ? token.image : null);
+          session.needsUserId = !token.userId;
+          session.provider = typeof token.provider === 'string' ? token.provider : undefined;
+          return session;
+        }
+
+        try {
+          await connectDB();
+        } catch (error) {
+          // If connection fails (e.g., during build), return basic session
+          console.warn('Database connection failed in session callback:', error);
+          session.user.id = null;
+          session.user.userId = (typeof token.userId === 'string' ? token.userId : null);
+          session.user.name = (typeof token.name === 'string' ? token.name : undefined);
+          session.user.email = token.email || null;
+          session.user.image = (typeof token.image === 'string' ? token.image : null);
+          session.needsUserId = !token.userId;
+          session.provider = typeof token.provider === 'string' ? token.provider : undefined;
+          return session;
+        }
         
         // Use userId as the primary identifier
         if (token.userId) {

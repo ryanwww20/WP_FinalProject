@@ -17,6 +17,7 @@ interface Group {
   memberCount: number;
   inviteCode: string;
   hasPassword?: boolean; // true if group has password (private), false if no password (public)
+  requireApproval: boolean; // whether group requires approval for new members
 }
 
 interface Membership {
@@ -61,16 +62,16 @@ export default function GroupTabs({
     };
   }, [onTabChange]);
 
-  const tabs = [
-    { id: "overview" as const, label: "Overview", icon: "📊" },
-    { id: "chat" as const, label: "Chat", icon: "💬" },
-    { id: "ranking" as const, label: "Ranking", icon: "🏆" },
-    { id: "map" as const, label: "Map", icon: "📍" },
+  const tabs: Array<{ id: "overview" | "chat" | "ranking" | "map" | "settings"; label: string; icon: string }> = [
+    { id: "overview", label: "Overview", icon: "📊" },
+    { id: "chat", label: "Chat", icon: "💬" },
+    { id: "ranking", label: "Ranking", icon: "🏆" },
+    { id: "map", label: "Map", icon: "📍" },
   ];
 
   // Only show Settings tab for owners/admins
   if (membership?.role === "owner" || membership?.role === "admin") {
-    tabs.push({ id: "settings" as const, label: "Settings", icon: "⚙️" });
+    tabs.push({ id: "settings", label: "Settings", icon: "⚙️" });
   }
 
   return (
