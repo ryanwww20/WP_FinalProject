@@ -62,6 +62,18 @@ export const authOptions: NextAuthOptions = {
             provider: provider 
           });
           
+          // If user exists, update their image from OAuth provider if available
+          if (dbUser && user.image) {
+            dbUser.image = user.image;
+            await dbUser.save();
+          }
+          
+          // Store image in token so it's available in session callback
+          // This is important for users who haven't set userId yet
+          if (user.image) {
+            token.image = user.image;
+          }
+          
           token.email = email;
           token.provider = provider;
           token.userId = dbUser?.userId || null;
@@ -152,7 +164,7 @@ export const authOptions: NextAuthOptions = {
             session.user.userId = null;
             session.user.name = dbUser.name; // Update name from database
             session.user.email = dbUser.email; // Update email from database
-            session.user.image = dbUser.image; // Update image from database
+            session.user.image = dbUser.image || (typeof token.image === 'string' ? token.image : null) || null; // Use database image or token image
             session.needsUserId = true;
             session.provider = typeof token.provider === 'string' ? token.provider : undefined; // Store provider in session
             return session;
@@ -160,8 +172,10 @@ export const authOptions: NextAuthOptions = {
         }
         
         // No user found - needs to set userId
+        // Use image from token (OAuth provider) if available
         session.user.id = null;
         session.user.userId = null;
+        session.user.image = (typeof token.image === 'string' ? token.image : null); // Use image from OAuth provider
         session.needsUserId = true;
         session.provider = typeof token.provider === 'string' ? token.provider : undefined; // Store provider in session
       }
@@ -176,4 +190,3 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
-

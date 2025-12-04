@@ -17,6 +17,7 @@ declare module 'next-auth' {
     userId?: string | null;
     email?: string | null;
     provider?: string; // Store provider to uniquely identify users with same email
+    image?: string | null; // Store image from OAuth provider
   }
 }
 
