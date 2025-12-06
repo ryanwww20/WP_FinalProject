@@ -13,6 +13,55 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
+      // GitHub does not always return email (private email, no public email set)
+      // Request user:email scope and fetch the verified primary email manually
+      authorization: { params: { scope: 'read:user user:email' } },
+      async profile(profile, tokens) {
+        let email = profile?.email as string | null | undefined;
+
+        // If email is missing, fetch from the GitHub emails endpoint
+        if (!email && tokens?.access_token) {
+          try {
+            const res = await fetch('https://api.github.com/user/emails', {
+              headers: {
+                Authorization: `token ${tokens.access_token}`,
+                Accept: 'application/vnd.github+json',
+              },
+            });
+
+            if (res.ok) {
+              const emails = (await res.json()) as Array<{
+                email: string;
+                primary: boolean;
+                verified: boolean;
+                visibility?: string | null;
+              }>;
+
+              const primaryEmail =
+                emails.find((e) => e.primary && e.verified) ??
+                emails.find((e) => e.verified) ??
+                emails[0];
+
+              email = primaryEmail?.email;
+            } else {
+              console.error('Failed to fetch GitHub emails:', res.status, await res.text());
+            }
+          } catch (error) {
+            console.error('Error fetching GitHub emails:', error);
+          }
+        }
+
+        // Fallback to GitHub no-reply email to satisfy NextAuth's email requirement
+        const safeEmail =
+          email ?? (profile?.login ? `${profile.login}@users.noreply.github.com` : null);
+
+        return {
+          id: profile?.id?.toString() ?? profile?.node_id ?? profile?.login,
+          name: profile?.name ?? profile?.login ?? 'GitHub User',
+          email: safeEmail,
+          image: profile?.avatar_url,
+        };
+      },
     }),
   ],
   callbacks: {
