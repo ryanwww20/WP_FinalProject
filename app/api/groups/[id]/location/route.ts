@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import GroupMember from '@/models/GroupMember';
 import mongoose from 'mongoose';
+import { publishToChannel } from '@/lib/pusher';
+import { getGroupChannel, PUSHER_EVENTS } from '@/lib/pusher-constants';
+import type { LocationUpdatedEvent } from '@/lib/pusher-types';
 
 // PUT /api/groups/[id]/location - 更新當前使用者在群組中的位置
 export async function PUT(
@@ -70,6 +73,34 @@ export async function PUT(
     };
 
     await membership.save();
+
+    // 獲取使用者資訊
+    const User = (await import('@/models/User')).default;
+    const user = await User.findOne({ userId: session.user.userId })
+      .select('name image')
+      .lean();
+
+    // 發送 Pusher 事件通知群組其他成員
+    try {
+      const channel = getGroupChannel(params.id);
+      const locationEvent: LocationUpdatedEvent = {
+        userId: session.user.userId,
+        userName: user?.name || 'Unknown',
+        userImage: user?.image || undefined,
+        groupId: params.id,
+        location: {
+          lat: membership.location.lat,
+          lng: membership.location.lng,
+          address: membership.location.address || undefined,
+          updatedAt: membership.location.updatedAt.toISOString(),
+        },
+      };
+
+      await publishToChannel(channel, PUSHER_EVENTS.LOCATION_UPDATED, locationEvent);
+    } catch (error) {
+      // 記錄錯誤但不影響位置更新
+      console.error('❌ [API] Error publishing location update to Pusher:', error);
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import GroupHeader from "./components/GroupHeader";
 import GroupTabs from "./components/GroupTabs";
 import PasswordPromptModal from "../components/PasswordPromptModal";
+import LocationNotification from "./components/LocationNotification";
+import { usePusherContext } from "@/components/PusherProvider";
+import { getGroupChannel, PUSHER_EVENTS } from "@/lib/pusher-constants";
+import type { LocationUpdatedEvent } from "@/lib/pusher-types";
+import { useSession } from "next-auth/react";
 
 interface Group {
   _id: string;
@@ -32,14 +37,78 @@ interface GroupDetailData {
 
 export default function GroupDetailClient({ groupId }: { groupId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const { pusher, isConnected } = usePusherContext();
   const [groupData, setGroupData] = useState<GroupDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "chat" | "ranking" | "map" | "settings">("overview");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [locationNotification, setLocationNotification] = useState<LocationUpdatedEvent | null>(null);
 
   useEffect(() => {
     fetchGroupData();
   }, [groupId]);
+
+  // 處理 URL 參數中的 tab
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["overview", "chat", "ranking", "map", "settings"].includes(tab)) {
+      setActiveTab(tab as typeof activeTab);
+    }
+  }, [searchParams]);
+
+  // 監聽 Pusher 位置更新事件
+  useEffect(() => {
+    if (!pusher || !isConnected || !groupData?.isMember || !session?.user?.userId) {
+      return;
+    }
+
+    let channel: any = null;
+
+    try {
+      const channelName = getGroupChannel(groupId);
+      channel = pusher.subscribe(channelName);
+
+      const handleLocationUpdate = (data: LocationUpdatedEvent) => {
+        // 不顯示自己的位置更新通知
+        if (data.userId === session.user?.userId) {
+          return;
+        }
+
+        // 顯示通知
+        setLocationNotification(data);
+      };
+
+      channel.bind(PUSHER_EVENTS.LOCATION_UPDATED, handleLocationUpdate);
+
+      // 監聽訂閱成功事件
+      channel.bind("pusher:subscription_succeeded", () => {
+        console.log(`✅ Subscribed to location updates for group ${groupId}`);
+      });
+
+      // 監聽訂閱錯誤
+      channel.bind("pusher:subscription_error", (error: any) => {
+        console.error("❌ Pusher subscription error:", error);
+      });
+    } catch (error) {
+      console.error("Error subscribing to location updates:", error);
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          channel.unbind(PUSHER_EVENTS.LOCATION_UPDATED);
+          channel.unbind("pusher:subscription_succeeded");
+          channel.unbind("pusher:subscription_error");
+          const channelName = getGroupChannel(groupId);
+          pusher.unsubscribe(channelName);
+        } catch (error) {
+          console.error("Error unsubscribing from location updates:", error);
+        }
+      }
+    };
+  }, [pusher, isConnected, groupId, groupData?.isMember, session?.user?.userId]);
 
   const fetchGroupData = async () => {
     try {
@@ -122,6 +191,15 @@ export default function GroupDetailClient({ groupId }: { groupId: string }) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* 位置更新通知 */}
+      {locationNotification && (
+        <LocationNotification
+          notification={locationNotification}
+          onClose={() => setLocationNotification(null)}
+          groupId={groupId}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Group Header */}
         <GroupHeader

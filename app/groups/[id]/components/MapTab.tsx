@@ -64,6 +64,7 @@ interface MapTabProps {
 export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps) {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [selectedMemberLocation, setSelectedMemberLocation] = useState<MemberLocation | null>(null);
+  const [hoveredMemberLocation, setHoveredMemberLocation] = useState<MemberLocation | null>(null);
   const [map, setMap] = useState<any>(null);
   const [center, setCenter] = useState(defaultCenter);
   const [zoom, setZoom] = useState(defaultZoom);
@@ -104,15 +105,58 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
   const handleMemberMarkerClick = (memberLocation: MemberLocation) => {
     setSelectedMemberLocation(memberLocation);
     setSelectedLocation(null);
+    setHoveredMemberLocation(null); // 點擊時關閉 hover 提示
+  };
+
+  // 成員位置標記 hover 處理
+  const handleMemberMarkerMouseOver = (memberLocation: MemberLocation) => {
+    // 只有在沒有選中資訊視窗時才顯示 hover 提示
+    if (!selectedMemberLocation) {
+      setHoveredMemberLocation(memberLocation);
+    }
+  };
+
+  // 成員位置標記 hover 離開處理
+  const handleMemberMarkerMouseOut = () => {
+    setHoveredMemberLocation(null);
   };
 
   // 關閉資訊視窗
   const handleInfoWindowClose = () => {
     setSelectedLocation(null);
     setSelectedMemberLocation(null);
+    setHoveredMemberLocation(null);
   };
 
   const { data: session } = useSession();
+
+  // 格式化更新時間（顯示相對時間或絕對時間）
+  const formatUpdateTime = (updatedAt: string): string => {
+    const now = new Date();
+    const updateTime = new Date(updatedAt);
+    const diffMs = now.getTime() - updateTime.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+      return "剛剛";
+    } else if (diffMins < 60) {
+      return `${diffMins} 分鐘前`;
+    } else if (diffHours < 24) {
+      return `${diffHours} 小時前`;
+    } else if (diffDays < 7) {
+      return `${diffDays} 天前`;
+    } else {
+      // 超過一週顯示完整日期時間
+      return updateTime.toLocaleString("zh-TW", {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+  };
 
   // 切換地圖類型
   const handleMapTypeChange = (type: "roadmap" | "satellite" | "hybrid" | "terrain") => {
@@ -399,11 +443,26 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 key={memberLocation.userId}
                 position={{ lat: memberLocation.lat, lng: memberLocation.lng }}
                 onClick={() => handleMemberMarkerClick(memberLocation)}
+                onMouseOver={() => handleMemberMarkerMouseOver(memberLocation)}
+                onMouseOut={handleMemberMarkerMouseOut}
                 icon={{
                   url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
                   scaledSize: { width: 40, height: 40 },
                 }}
                 title={memberLocation.userName}
+                // 使用原生 Google Maps 事件
+                onLoad={(marker) => {
+                  // 綁定原生 Google Maps 事件
+                  if (marker && typeof window !== 'undefined' && window.google) {
+                    const googleMarker = marker as any;
+                    googleMarker.addListener('mouseover', () => {
+                      handleMemberMarkerMouseOver(memberLocation);
+                    });
+                    googleMarker.addListener('mouseout', () => {
+                      handleMemberMarkerMouseOut();
+                    });
+                  }
+                }}
               />
             ))}
 
@@ -424,7 +483,27 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
               />
             ))}
 
-            {/* 成員位置資訊視窗 */}
+            {/* Hover 提示視窗（顯示名字和更新時間） */}
+            {hoveredMemberLocation && !selectedMemberLocation && (
+              <InfoWindow
+                position={{ lat: hoveredMemberLocation.lat, lng: hoveredMemberLocation.lng }}
+                options={{
+                  disableAutoPan: true,
+                  pixelOffset: { width: 0, height: -40 },
+                }}
+              >
+                <div className="p-2">
+                  <p className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
+                    {hoveredMemberLocation.userName}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    上次更新：{formatUpdateTime(hoveredMemberLocation.updatedAt)}
+                  </p>
+                </div>
+              </InfoWindow>
+            )}
+
+            {/* 成員位置資訊視窗（點擊時顯示完整資訊） */}
             {selectedMemberLocation && (
               <InfoWindow
                 position={{ lat: selectedMemberLocation.lat, lng: selectedMemberLocation.lng }}

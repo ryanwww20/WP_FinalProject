@@ -36,10 +36,27 @@ export interface NewMessageEvent extends Message {
 }
 
 /**
+ * Event payload for 'location-updated' event
+ * Fired when a member updates their location in a group
+ */
+export interface LocationUpdatedEvent {
+  userId: string;
+  userName: string;
+  userImage?: string;
+  groupId: string;
+  location: {
+    lat: number;
+    lng: number;
+    address?: string;
+    updatedAt: string;
+  };
+}
+
+/**
  * Union type for all Pusher event payloads
  * Add new event types here as they're implemented
  */
-export type PusherEventPayload = NewMessageEvent;
+export type PusherEventPayload = NewMessageEvent | LocationUpdatedEvent;
 // Future events:
 // | MemberJoinedEvent
 // | MemberLeftEvent
