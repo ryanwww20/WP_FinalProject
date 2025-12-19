@@ -17,7 +17,6 @@ export default function CreateGroupModal({
     coverImage: "",
     password: "",
     maxMembers: "",
-    requireApproval: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +53,6 @@ export default function CreateGroupModal({
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         visibility: hasPassword ? "private" : "public",
-        requireApproval: formData.requireApproval,
       };
 
       if (formData.coverImage.trim()) {
@@ -233,24 +231,6 @@ export default function CreateGroupModal({
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Enter a number (minimum 2) or leave empty for unlimited members
               </p>
-            </div>
-
-            {/* Require Approval */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="requireApproval"
-                id="requireApproval"
-                checked={formData.requireApproval}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <label
-                htmlFor="requireApproval"
-                className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-              >
-                Require approval for new members
-              </label>
             </div>
 
             {/* Buttons */}
