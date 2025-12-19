@@ -105,50 +105,50 @@ export default function StatisticsCard({ targetUserId, readOnly = false }: Stati
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
-      return mins > 0 ? `${hours}小時 ${mins}分鐘` : `${hours}小時`;
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
     }
-    return `${mins}分鐘`;
+    return `${mins}m`;
   };
 
   const todayProgress = (todayMinutes / targetDailyMinutes) * 100;
 
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 p-5">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-700 mb-5">
-          學習統計
+      <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+        <h2 className="text-lg font-semibold text-foreground mb-5">
+          Study Statistics
         </h2>
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          載入中...
+        <div className="text-center py-8 text-muted-foreground">
+          Loading...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 p-5">
-      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-700 mb-5">
-        學習統計
+    <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+      <h2 className="text-lg font-semibold text-foreground mb-5">
+        Study Statistics
       </h2>
 
       {/* Today's Study Time */}
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-600">
-            今日學習時數
+          <span className="text-xs font-medium text-muted-foreground">
+            Today's Study Time
           </span>
-          <span className="text-base font-semibold text-gray-800 dark:text-gray-700">
+          <span className="text-base font-semibold text-foreground">
             {formatTime(todayMinutes)}
           </span>
         </div>
-        <div className="w-full bg-gray-100 dark:bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-muted rounded-full h-2">
           <div
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-500"
+            className="bg-gradient-to-r from-primary to-secondary h-2 rounded-full transition-all duration-500"
             style={{ width: `${Math.min(todayProgress, 100)}%` }}
           ></div>
         </div>
-        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-500 mt-1">
-          <span>目標: {formatTime(targetDailyMinutes)}</span>
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <span>Goal: {formatTime(targetDailyMinutes)}</span>
           <span>{Math.round(todayProgress)}%</span>
         </div>
       </div>
@@ -157,28 +157,28 @@ export default function StatisticsCard({ targetUserId, readOnly = false }: Stati
       <div className="mb-5">
         <div className="space-y-1.5">
           {[
-            { day: "一", minutes: Math.floor((stats?.weeklyStats?.daily?.monday || 0) / 60) },
-            { day: "二", minutes: Math.floor((stats?.weeklyStats?.daily?.tuesday || 0) / 60) },
-            { day: "三", minutes: Math.floor((stats?.weeklyStats?.daily?.wednesday || 0) / 60) },
-            { day: "四", minutes: Math.floor((stats?.weeklyStats?.daily?.thursday || 0) / 60) },
-            { day: "五", minutes: Math.floor((stats?.weeklyStats?.daily?.friday || 0) / 60) },
-            { day: "六", minutes: Math.floor((stats?.weeklyStats?.daily?.saturday || 0) / 60) },
-            { day: "日", minutes: Math.floor((stats?.weeklyStats?.daily?.sunday || 0) / 60) },
+            { day: "Mon", minutes: Math.floor((stats?.weeklyStats?.daily?.monday || 0) / 60) },
+            { day: "Tue", minutes: Math.floor((stats?.weeklyStats?.daily?.tuesday || 0) / 60) },
+            { day: "Wed", minutes: Math.floor((stats?.weeklyStats?.daily?.wednesday || 0) / 60) },
+            { day: "Thu", minutes: Math.floor((stats?.weeklyStats?.daily?.thursday || 0) / 60) },
+            { day: "Fri", minutes: Math.floor((stats?.weeklyStats?.daily?.friday || 0) / 60) },
+            { day: "Sat", minutes: Math.floor((stats?.weeklyStats?.daily?.saturday || 0) / 60) },
+            { day: "Sun", minutes: Math.floor((stats?.weeklyStats?.daily?.sunday || 0) / 60) },
           ].map((item, index) => {
             const maxMinutes = 480; // 8 hours max
             const height = (item.minutes / maxMinutes) * 100;
             return (
               <div key={index} className="flex items-end gap-2">
-                <span className="text-xs text-gray-600 dark:text-gray-600 w-5">
+                <span className="text-xs text-muted-foreground w-9">
                   {item.day}
                 </span>
-                <div className="flex-1 bg-gray-100 dark:bg-gray-200 rounded-t relative h-12 border border-gray-200 dark:border-gray-300 border-b-0">
+                <div className="flex-1 bg-muted rounded-t relative h-12 border border-border border-b-0">
                   <div
-                    className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-indigo-500 to-purple-600 rounded-t transition-all duration-500"
+                    className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-secondary rounded-t transition-all duration-500"
                     style={{ height: `${height}%` }}
                   ></div>
                   {item.minutes > 0 && (
-                    <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700 dark:text-gray-700">
+                    <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-semibold text-foreground">
                       {Math.floor(item.minutes / 60) > 0 
                         ? `${Math.floor(item.minutes / 60)}h` 
                         : `${item.minutes}m`}
@@ -192,25 +192,25 @@ export default function StatisticsCard({ targetUserId, readOnly = false }: Stati
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 gap-4 pt-5 border-t border-gray-200 dark:border-gray-300">
+      <div className="grid grid-cols-2 gap-4 pt-5 border-t border-border">
         <div className="text-center">
-          <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-500">
+          <div className="text-xl font-semibold text-primary">
             {Math.floor(thisWeekMinutes / 60) > 0 
               ? `${Math.floor(thisWeekMinutes / 60)}h` 
               : `${thisWeekMinutes}m`}
           </div>
-          <div className="text-xs text-gray-600 dark:text-gray-600 mt-1">
-            本週總時數
+          <div className="text-xs text-muted-foreground mt-1">
+            This Week
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-semibold text-purple-600 dark:text-purple-500">
+          <div className="text-xl font-semibold text-secondary">
             {Math.floor(thisWeekMinutes / 60 / 7) > 0 
               ? `${Math.floor(thisWeekMinutes / 60 / 7)}h` 
               : `${Math.floor(thisWeekMinutes / 7)}m`}
           </div>
-          <div className="text-xs text-gray-600 dark:text-gray-600 mt-1">
-            平均每日
+          <div className="text-xs text-muted-foreground mt-1">
+            Daily Avg
           </div>
         </div>
       </div>

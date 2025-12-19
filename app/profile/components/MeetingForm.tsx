@@ -22,26 +22,26 @@ export default function MeetingForm({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-600">
-          上課時段 *
+        <label className="block text-sm font-medium text-foreground">
+          Meeting Times *
         </label>
         <button
           type="button"
           onClick={onAddMeeting}
-          className="text-sm text-indigo-600 hover:text-indigo-700"
+          className="text-sm text-primary hover:text-primary/80"
         >
-          + 新增時段
+          + Add Time
         </button>
       </div>
 
       {meetings.map((meeting, meetingIndex) => (
         <div
           key={meetingIndex}
-          className="mb-4 p-4 border border-gray-200 dark:border-gray-300 rounded-lg space-y-3"
+          className="mb-4 p-4 border border-border rounded-lg space-y-3 bg-muted/30"
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-600">
-              時段 {meetingIndex + 1}
+            <span className="text-sm font-medium text-foreground">
+              Meeting {meetingIndex + 1}
             </span>
             {meetings.length > 1 && (
               <button
@@ -49,15 +49,15 @@ export default function MeetingForm({
                 onClick={() => onRemoveMeeting(meetingIndex)}
                 className="text-sm text-red-600 hover:text-red-700"
               >
-                刪除
+                Remove
               </button>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
-                星期 *
+              <label className="block text-xs text-muted-foreground mb-1">
+                Day of Week *
               </label>
               <select
                 value={meeting.dayOfWeek}
@@ -67,19 +67,19 @@ export default function MeetingForm({
                   })
                 }
                 required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
               >
                 {daysOfWeek.map((day, index) => (
                   <option key={index} value={index + 1}>
-                    週{day}
+                    {day}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
-                時間段 *
+              <label className="block text-xs text-muted-foreground mb-1">
+                Time Slots *
               </label>
               <select
                 multiple
@@ -92,7 +92,7 @@ export default function MeetingForm({
                   onUpdateMeeting(meetingIndex, { timeSlots: selected });
                 }}
                 required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
                 size={5}
               >
                 {timeSlots.map((slot) => (
@@ -101,20 +101,20 @@ export default function MeetingForm({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
-                按住 Ctrl/Cmd (Mac) 或 Ctrl (Windows) 可多選
+              <p className="text-xs text-muted-foreground mt-1">
+                Hold Ctrl/Cmd (Mac) or Ctrl (Windows) to select multiple
               </p>
               {meeting.timeSlots.length > 0 && (
-                <p className="text-xs text-indigo-600 mt-1">
-                  已選擇: {meeting.timeSlots.sort().join(", ")}
+                <p className="text-xs text-primary mt-1">
+                  Selected: {meeting.timeSlots.sort().join(", ")}
                 </p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-xs text-gray-600 dark:text-gray-500 mb-1">
-              地點
+            <label className="block text-xs text-muted-foreground mb-1">
+              Location
             </label>
             <input
               type="text"
@@ -124,7 +124,7 @@ export default function MeetingForm({
                   location: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
             />
           </div>
         </div>

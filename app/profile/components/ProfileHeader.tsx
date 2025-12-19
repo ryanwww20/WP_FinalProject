@@ -70,7 +70,7 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
 
   const handleSave = async () => {
     if (name.trim() === "") {
-      alert("名稱不能為空");
+      alert("Name cannot be empty");
       return;
     }
 
@@ -85,7 +85,7 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
 
       if (!nameResponse.ok) {
         const error = await nameResponse.json();
-        alert(`更新名稱失敗: ${error.error}`);
+        alert(`Failed to update name: ${error.error}`);
         setIsSaving(false);
         return;
       }
@@ -104,7 +104,7 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
 
         if (!statusResponse.ok) {
           const error = await statusResponse.json();
-          alert(`更新狀態失敗: ${error.error}`);
+          alert(`Failed to update status: ${error.error}`);
         } else {
           setCurrentStatus(selectedStatus);
         }
@@ -117,7 +117,7 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
       setIsEditing(false);
     } catch (error) {
       console.error("Error saving profile:", error);
-      alert("更新失敗，請稍後再試");
+      alert("Update failed, please try again later");
     } finally {
       setIsSaving(false);
     }
@@ -164,9 +164,9 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
   const statusInfo = statusConfig[currentStatus];
 
   return (
-    <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 overflow-hidden">
-      {/* Pink Banner */}
-      <div className="bg-pink-500 h-32"></div>
+    <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+      {/* Gradient Banner */}
+      <div className="bg-gradient-to-r from-primary via-secondary to-primary h-32"></div>
 
       <div className="px-6 pb-6 -mt-16">
         <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
@@ -177,11 +177,11 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
                 <img
                   src={(readOnly && profile?.image) || session?.user?.image || initialSession.user?.image || ""}
                   alt={(readOnly && profile?.name) || session?.user?.name || initialSession.user?.name || "User"}
-                  className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-50 object-cover"
+                  className="w-32 h-32 rounded-full border-4 border-card shadow-xl object-cover"
                 />
               ) : (
-                <div className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-50 bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
-                  <span className="text-4xl font-bold text-white">
+                <div className="w-32 h-32 rounded-full border-4 border-card shadow-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <span className="text-4xl font-bold text-primary-foreground">
                     {((readOnly && profile?.name) || session?.user?.name || initialSession.user?.name || "U").charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -197,10 +197,10 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="text-2xl font-bold bg-transparent border-b-2 border-indigo-600 dark:border-indigo-500 focus:outline-none focus:border-indigo-700 dark:focus:border-indigo-600 text-gray-800 dark:text-gray-700"
+                    className="text-2xl font-bold bg-transparent border-b-2 border-primary focus:outline-none focus:border-primary/80 text-foreground"
                   />
                 ) : (
-                  <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-700">
+                  <h1 className="text-2xl font-bold text-foreground">
                     {name || session?.user?.name || initialSession.user?.name || "User"}
                   </h1>
                 )}
@@ -214,34 +214,34 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
                         e.target.value as "studying" | "busy" | "offline"
                       )
                     }
-                    className="text-sm font-medium px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-400 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="text-sm font-medium px-3 py-1 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="studying">學習中</option>
-                    <option value="busy">忙碌</option>
-                    <option value="offline">離線</option>
+                    <option value="studying">Studying</option>
+                    <option value="busy">Busy</option>
+                    <option value="offline">Offline</option>
                   </select>
                 ) : (
                   <div
                     className={`w-3 h-3 rounded-full ${statusConfig[(readOnly ? selectedStatus : currentStatus) || 'offline'].color}`}
                     title={
                       (readOnly ? selectedStatus : currentStatus) === "studying"
-                        ? "學習中"
+                        ? "Studying"
                         : (readOnly ? selectedStatus : currentStatus) === "busy"
-                        ? "忙碌"
-                        : "離線"
+                        ? "Busy"
+                        : "Offline"
                     }
                   ></div>
                 )}
               </div>
 
               {/* User ID and Join Date */}
-              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-600">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono font-medium">
                     {targetUserId || session?.user?.userId || initialSession.user?.userId || "N/A"}
                   </span>
                 </div>
-                <span className="text-gray-500 dark:text-gray-500">•</span>
+                <span>•</span>
                 <span>{formatJoinDate()}</span>
               </div>
             </div>
@@ -254,14 +254,14 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                 >
-                  {isSaving ? "儲存中..." : "儲存"}
+                  {isSaving ? "Saving..." : "Save"}
                 </button>
               ) : (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors shadow-sm"
                 >
                   Edit Profile
                 </button>
@@ -274,9 +274,9 @@ export default function ProfileHeader({ session: initialSession, targetUserId, r
                     setSelectedStatus(currentStatus);
                   }}
                   disabled={isSaving}
-                  className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-700 bg-gray-200 dark:bg-gray-300 hover:bg-gray-300 dark:hover:bg-gray-400 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-semibold text-muted-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  取消
+                  Cancel
                 </button>
               )}
             </div>

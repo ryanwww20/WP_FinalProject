@@ -92,7 +92,7 @@ export default function ScheduleView({ targetUserId, readOnly = false }: Schedul
     if (meetings.length > 1) {
       setMeetings(meetings.filter((_, i) => i !== index));
     } else {
-      alert("至少需要一個上課時段");
+      alert("At least one meeting time is required");
     }
   };
 
@@ -108,7 +108,7 @@ export default function ScheduleView({ targetUserId, readOnly = false }: Schedul
     // Validate meetings
     for (const meeting of meetings) {
       if (meeting.timeSlots.length === 0) {
-        alert("請為每個上課時段選擇至少一個時間段");
+        alert("Please select at least one time slot for each meeting");
         return;
       }
     }
@@ -137,18 +137,18 @@ export default function ScheduleView({ targetUserId, readOnly = false }: Schedul
   };
 
   return (
-    <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 p-6">
+    <div className="bg-card rounded-xl shadow-sm border border-border p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-700">
-          {readOnly ? "Course Schedule" : "課表"}
+        <h2 className="text-lg font-semibold text-foreground">
+          Course Schedule
         </h2>
         {!readOnly && (
           <button
             onClick={handleAddCourse}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors shadow-sm"
           >
-            + 新增課程
+            + Add Course
           </button>
         )}
       </div>
@@ -176,8 +176,8 @@ export default function ScheduleView({ targetUserId, readOnly = false }: Schedul
       />
 
       {isLoading && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          載入中...
+        <div className="text-center py-8 text-muted-foreground">
+          Loading...
         </div>
       )}
     </div>
