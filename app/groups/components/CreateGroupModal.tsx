@@ -114,16 +114,16 @@ export default function CreateGroupModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-2xl font-bold text-foreground">
               Create New Group
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <svg
                 className="w-6 h-6"
@@ -150,7 +150,7 @@ export default function CreateGroupModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Group Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Group Name *
               </label>
               <input
@@ -158,7 +158,7 @@ export default function CreateGroupModal({
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground shadow-sm"
                 placeholder="Enter group name"
                 required
                 maxLength={100}
@@ -167,7 +167,7 @@ export default function CreateGroupModal({
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Description (Optional)
               </label>
               <textarea
@@ -175,7 +175,7 @@ export default function CreateGroupModal({
                 value={formData.description}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground shadow-sm resize-none"
                 placeholder="Describe your group..."
                 maxLength={500}
               />
@@ -183,7 +183,7 @@ export default function CreateGroupModal({
 
             {/* Cover Image URL */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Cover Image URL (Optional)
               </label>
               <input
@@ -191,14 +191,14 @@ export default function CreateGroupModal({
                 name="coverImage"
                 value={formData.coverImage}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground shadow-sm"
                 placeholder="https://example.com/image.jpg"
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Password (Optional)
               </label>
               <input
@@ -206,16 +206,19 @@ export default function CreateGroupModal({
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground shadow-sm"
                 placeholder="Leave empty for public group"
                 minLength={4}
                 maxLength={50}
               />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Set a password to make your group private
+              </p>
             </div>
 
             {/* Max Members */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Maximum Members (Optional)
               </label>
               <input
@@ -223,12 +226,12 @@ export default function CreateGroupModal({
                 name="maxMembers"
                 value={formData.maxMembers}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground shadow-sm"
                 placeholder="No limit"
                 pattern="[0-9]*"
                 inputMode="numeric"
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Enter a number (minimum 2) or leave empty for unlimited members
               </p>
             </div>
@@ -238,14 +241,14 @@ export default function CreateGroupModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-6 py-2 text-muted-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "Creating..." : "Create Group"}
               </button>

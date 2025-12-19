@@ -90,7 +90,7 @@ export default function GroupHeader({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-6">
+    <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-6">
       {/* Cover Image */}
       {group.coverImage ? (
         <div
@@ -98,7 +98,7 @@ export default function GroupHeader({
           style={{ backgroundImage: `url(${group.coverImage})` }}
         />
       ) : (
-        <div className="h-48 bg-gradient-to-br from-blue-400 to-purple-500" />
+        <div className="h-48 bg-gradient-to-r from-primary via-secondary to-primary" />
       )}
 
       {/* Header Content */}
@@ -106,18 +106,18 @@ export default function GroupHeader({
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           {/* Group Info */}
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <h1 className="text-3xl font-bold text-foreground">
                 {group.name}
               </h1>
               {membership?.role && (
                 <span
                   className={`px-3 py-1 text-sm font-medium rounded-full ${
                     membership.role === "owner"
-                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
                       : membership.role === "admin"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {membership.role}
@@ -126,8 +126,8 @@ export default function GroupHeader({
               <span
                 className={`px-3 py-1 text-sm font-medium rounded-full ${
                   !group.hasPassword
-                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                    : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                    : "bg-muted text-muted-foreground"
                 }`}
               >
                 {!group.hasPassword ? "Public" : "Private"}
@@ -135,13 +135,13 @@ export default function GroupHeader({
             </div>
 
             {group.description && (
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-muted-foreground mb-4">
                 {group.description}
               </p>
             )}
 
-            <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
                 <svg
                   className="w-5 h-5"
                   fill="none"
@@ -155,7 +155,7 @@ export default function GroupHeader({
                     d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                   />
                 </svg>
-                <span>{group.memberCount} member{group.memberCount !== 1 ? "s" : ""}</span>
+                <span>{group.memberCount} {group.memberCount !== 1 ? "members" : "member"}</span>
               </div>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function GroupHeader({
                 <button
                   onClick={handleJoinGroup}
                   disabled={isJoining}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isJoining ? (
                     "Joining..."
@@ -193,7 +193,20 @@ export default function GroupHeader({
                 </button>
               ) : (
                 // Private group - show message that password is required
-                <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400">
+                <div className="px-4 py-2 bg-muted rounded-lg text-sm text-muted-foreground flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
                   Password required to join
                 </div>
               )
@@ -205,7 +218,7 @@ export default function GroupHeader({
                   <button
                     onClick={handleLeaveGroup}
                     disabled={isLeaving}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isLeaving ? (
                       "Leaving..."
