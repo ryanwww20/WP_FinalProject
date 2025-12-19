@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "migrate-db": "tsx --require dotenv/config scripts/migrate-db.ts dotenv_config_path=.env.local",
     "inspect-db": "tsx --require dotenv/config scripts/inspect-db.ts dotenv_config_path=.env.local",
     "cleanup-db": "tsx --require dotenv/config scripts/cleanup-db.ts dotenv_config_path=.env.local"
   },

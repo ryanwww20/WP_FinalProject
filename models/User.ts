@@ -27,18 +27,55 @@ export interface IUser extends Document {
   schedule?: {
     courses: Course[];
   };
+  
+  // ============================================================================
+  // STUDY STATS: Global per-user accumulated statistics
+  // These are the user's total stats across ALL activities.
+  // Groups fetch these stats for ranking purposes.
+  // ============================================================================
   studyStats?: {
-    today: number; // minutes
-    thisWeek: number; // minutes
-    weekly: {
-      monday: number;
-      tuesday: number;
-      wednesday: number;
-      thursday: number;
-      friday: number;
-      saturday: number;
-      sunday: number;
+    // All-time stats
+    totalStudyTime: number; // total seconds studied (all-time)
+    
+    // Today's stats (with date tracking, auto-resets at midnight)
+    todayStats: {
+      date: string; // 'YYYY-MM-DD' format
+      seconds: number; // Study time today in seconds
     };
+    
+    // This week's stats (with week tracking, auto-resets on new week)
+    weeklyStats: {
+      weekStart: string; // 'YYYY-MM-DD' format (Monday of current week)
+      totalSeconds: number; // Total study time this week in seconds
+      daily: {
+        monday: number;    // seconds
+        tuesday: number;   // seconds
+        wednesday: number; // seconds
+        thursday: number;  // seconds
+        friday: number;    // seconds
+        saturday: number;  // seconds
+        sunday: number;    // seconds
+      };
+    };
+    
+    // This month's stats (with month tracking, auto-resets on new month)
+    monthlyStats: {
+      month: number; // 1-12
+      year: number; // 2024, 2025, etc.
+      seconds: number; // Total study time this month in seconds
+    };
+  };
+  
+  // ============================================================================
+  // FOCUS SESSION: This is the GLOBAL per-user focus state.
+  // When isActive=true, ALL groups the user belongs to will show them as "studying".
+  // This is queried by /api/groups/[id]/focus-status to display real-time focus status.
+  // Stats are accumulated once in studyStats above (not duplicated per-group).
+  // ============================================================================
+  focusSession?: {
+    isActive: boolean;           // Currently in focus mode
+    startedAt?: Date;            // When current session started
+    targetDuration?: number;     // Target duration in minutes
   };
   createdAt: Date;
   updatedAt: Date;
@@ -129,22 +166,78 @@ const UserSchema: Schema<IUser> = new Schema(
       ],
     },
     studyStats: {
-      today: {
+      totalStudyTime: {
         type: Number,
-        default: 0, // minutes
+        default: 0, // seconds (all-time)
+        min: 0,
       },
-      thisWeek: {
-        type: Number,
-        default: 0, // minutes
+      todayStats: {
+        date: {
+          type: String, // 'YYYY-MM-DD' format
+          default: () => new Date().toISOString().split('T')[0],
+        },
+        seconds: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
       },
-      weekly: {
-        monday: { type: Number, default: 0 },
-        tuesday: { type: Number, default: 0 },
-        wednesday: { type: Number, default: 0 },
-        thursday: { type: Number, default: 0 },
-        friday: { type: Number, default: 0 },
-        saturday: { type: Number, default: 0 },
-        sunday: { type: Number, default: 0 },
+      weeklyStats: {
+        weekStart: {
+          type: String, // 'YYYY-MM-DD' format (Monday of current week)
+          default: () => {
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Get Monday
+            const monday = new Date(now);
+            monday.setDate(now.getDate() + diff);
+            return monday.toISOString().split('T')[0];
+          },
+        },
+        totalSeconds: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
+        daily: {
+          monday: { type: Number, default: 0 },
+          tuesday: { type: Number, default: 0 },
+          wednesday: { type: Number, default: 0 },
+          thursday: { type: Number, default: 0 },
+          friday: { type: Number, default: 0 },
+          saturday: { type: Number, default: 0 },
+          sunday: { type: Number, default: 0 },
+        },
+      },
+      monthlyStats: {
+        month: {
+          type: Number,
+          default: () => new Date().getMonth() + 1, // 1-12
+          min: 1,
+          max: 12,
+        },
+        year: {
+          type: Number,
+          default: () => new Date().getFullYear(),
+        },
+        seconds: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
+      },
+    },
+    focusSession: {
+      isActive: {
+        type: Boolean,
+        default: false,
+      },
+      startedAt: {
+        type: Date,
+      },
+      targetDuration: {
+        type: Number, // minutes
+        min: 1,
       },
     },
   },
@@ -156,6 +249,9 @@ const UserSchema: Schema<IUser> = new Schema(
 // Create compound unique index on email + provider
 // This ensures email+provider combination is unique (not email alone)
 UserSchema.index({ email: 1, provider: 1 }, { unique: true });
+
+// Create indexes for focus session queries
+UserSchema.index({ 'focusSession.isActive': 1 }); // Find users currently in focus mode
 
 // Prevent model recompilation during hot reload
 const User: Model<IUser> =
