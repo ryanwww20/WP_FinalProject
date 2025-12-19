@@ -7,6 +7,19 @@ import GroupMember from '@/models/GroupMember';
 import User from '@/models/User';
 import mongoose from 'mongoose';
 
+/**
+ * Helper function to get Monday of current week (ISO 8601)
+ */
+function getMondayOfWeek(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // Get Monday
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().split('T')[0];
+}
+
 // GET /api/groups/[id]/ranking - Get rankings for a group
 export async function GET(
   request: NextRequest,
@@ -57,77 +70,74 @@ export async function GET(
       );
     }
 
-    // Get all members of the group
-    const members = await GroupMember.find({ groupId: params.id }).lean();
+    // Get all members of the group (only need userIds)
+    const members = await GroupMember.find({ groupId: params.id })
+      .select('userId')
+      .lean();
+    
+    const memberUserIds = members.map(m => m.userId);
 
-    // Calculate date range based on period
-    const now = new Date();
-    let startDate: Date;
-
-    switch (period) {
-      case 'today':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case 'week':
-        const dayOfWeek = now.getDay();
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - dayOfWeek); // Start of week (Sunday)
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    }
-
-    // For now, we'll use the totalStudyTime from GroupMember
-    // In the future, we can calculate from actual study sessions
-    // For MVP, we'll use the weekly stats based on the period
-    const rankings = await Promise.all(
-      members.map(async (member: any) => {
-        let studyTime = 0;
-
-        if (period === 'today') {
-          // Get today's study time from weekly stats
-          const dayIndex = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-          const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-          studyTime = member.weeklyStats?.[dayNames[dayIndex]] || 0;
-        } else if (period === 'week') {
-          // Sum all days of the week
-          studyTime = Object.values(member.weeklyStats || {}).reduce(
-            (sum: number, val: any) => sum + (val || 0),
-            0
-          );
-        } else {
-          // For month, use totalStudyTime (will be updated when we integrate with pomodoro)
-          studyTime = member.totalStudyTime || 0;
-        }
-
-        return {
-          userId: member.userId,
-          totalStudyTime: studyTime,
-          pomodoroCount: member.pomodoroCount || 0,
-        };
-      })
-    );
-
-    // Sort by study time (descending)
-    rankings.sort((a, b) => b.totalStudyTime - a.totalStudyTime);
-
-    // Get user info for top members
-    const topUserIds = rankings.slice(0, 10).map((r) => r.userId);
-    const users = await User.find({ userId: { $in: topUserIds } })
-      .select('userId name image')
+    // Fetch users with their stats
+    const users = await User.find({ userId: { $in: memberUserIds } })
+      .select('userId name image studyStats')
       .lean();
 
-    const userMap = new Map(users.map((u: any) => [u.userId, u]));
+    // Calculate date/time references
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentWeekStart = getMondayOfWeek(now);
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
 
-    // Enrich rankings with user info
+    // Build rankings from user stats
+    const rankings = users.map((user: any) => {
+      let studyTimeSeconds = 0;
+
+      if (!user.studyStats) {
+        return {
+          userId: user.userId,
+          totalStudyTime: 0,
+          user: { userId: user.userId, name: user.name, image: user.image },
+        };
+      }
+
+      if (period === 'today') {
+        // Today's stats
+        if (user.studyStats.todayStats?.date === today) {
+          studyTimeSeconds = user.studyStats.todayStats.seconds || 0;
+        }
+      } else if (period === 'week') {
+        // This week's stats
+        if (user.studyStats.weeklyStats?.weekStart === currentWeekStart) {
+          studyTimeSeconds = user.studyStats.weeklyStats.totalSeconds || 0;
+        }
+      } else if (period === 'month') {
+        // This month's stats
+        if (
+          user.studyStats.monthlyStats?.month === currentMonth &&
+          user.studyStats.monthlyStats?.year === currentYear
+        ) {
+          studyTimeSeconds = user.studyStats.monthlyStats.seconds || 0;
+        }
+      } else {
+        // All-time stats
+        studyTimeSeconds = user.studyStats.totalStudyTime || 0;
+      }
+
+      return {
+        userId: user.userId,
+        totalStudyTime: studyTimeSeconds,
+        user: { userId: user.userId, name: user.name, image: user.image },
+      };
+    });
+
+    // Sort by study time in seconds (descending)
+    rankings.sort((a, b) => b.totalStudyTime - a.totalStudyTime);
+
+    // Add rank
     const enrichedRankings = rankings.map((ranking, index) => ({
       ...ranking,
       rank: index + 1,
-      user: userMap.get(ranking.userId) || { name: 'Unknown', userId: ranking.userId },
     }));
 
     // Find current user's position

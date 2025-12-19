@@ -15,7 +15,6 @@ export default function CreateGroupModal({
     name: "",
     description: "",
     coverImage: "",
-    visibility: "private" as "public" | "private",
     password: "",
     maxMembers: "",
     requireApproval: false,
@@ -32,13 +31,29 @@ export default function CreateGroupModal({
       return;
     }
 
+    // Validate maxMembers if provided
+    if (formData.maxMembers) {
+      const maxMembersNum = parseInt(formData.maxMembers);
+      if (isNaN(maxMembersNum) || maxMembersNum < 2) {
+        setError("Maximum members must be at least 2");
+        return;
+      }
+      if (maxMembersNum > 1000) {
+        setError("Maximum members cannot exceed 1000");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
+      // Determine visibility based on password: has password = private, no password = public
+      const hasPassword = formData.password.trim().length > 0;
+      
       const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        visibility: formData.visibility,
+        visibility: hasPassword ? "private" : "public",
         requireApproval: formData.requireApproval,
       };
 
@@ -46,7 +61,7 @@ export default function CreateGroupModal({
         payload.coverImage = formData.coverImage.trim();
       }
 
-      if (formData.password.trim()) {
+      if (hasPassword) {
         payload.password = formData.password.trim();
       }
 
@@ -83,6 +98,14 @@ export default function CreateGroupModal({
     >
   ) => {
     const { name, value, type } = e.target;
+    
+    // For maxMembers, only allow numeric input
+    if (name === "maxMembers" && value !== "") {
+      if (!/^\d+$/.test(value)) {
+        return; // Ignore non-numeric input
+      }
+    }
+    
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -175,22 +198,6 @@ export default function CreateGroupModal({
               />
             </div>
 
-            {/* Visibility */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Visibility
-              </label>
-              <select
-                name="visibility"
-                value={formData.visibility}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="private">Private (Invite only)</option>
-                <option value="public">Public (Searchable)</option>
-              </select>
-            </div>
-
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -202,13 +209,10 @@ export default function CreateGroupModal({
                 value={formData.password}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                placeholder="Leave empty for no password"
+                placeholder="Leave empty for public group"
                 minLength={4}
                 maxLength={50}
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                If set, users will need this password to join
-              </p>
             </div>
 
             {/* Max Members */}
@@ -217,15 +221,18 @@ export default function CreateGroupModal({
                 Maximum Members (Optional)
               </label>
               <input
-                type="number"
+                type="text"
                 name="maxMembers"
                 value={formData.maxMembers}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                 placeholder="No limit"
-                min={2}
-                max={1000}
+                pattern="[0-9]*"
+                inputMode="numeric"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Enter a number (minimum 2) or leave empty for unlimited members
+              </p>
             </div>
 
             {/* Require Approval */}

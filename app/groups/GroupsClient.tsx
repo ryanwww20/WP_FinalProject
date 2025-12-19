@@ -11,10 +11,9 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
-  isPublic: boolean; // true if no password, false if has password
+  visibility: 'public' | 'private';
   hasPassword: boolean;
   memberCount: number;
-  inviteCode: string;
   createdAt: string;
   role?: "owner" | "admin" | "member";
 }
@@ -57,19 +56,14 @@ export default function GroupsClient() {
       return;
     }
 
-    // If group is public (no password), allow direct access
-    if (group.isPublic) {
-      router.push(`/groups/${group._id}`);
-      return;
-    }
-
-    // If group is private (has password), show password prompt
+    // If group has password (private), show password prompt to join
     if (group.hasPassword) {
       setPasswordModalGroup(group);
       return;
     }
 
-    // Default: try to access
+    // For public groups (no password), just navigate to group page
+    // User will see a "Join" button there to manually join
     router.push(`/groups/${group._id}`);
   };
 
@@ -85,7 +79,6 @@ export default function GroupsClient() {
         },
         body: JSON.stringify({
           password: password,
-          // No invite code needed - removed from UI
         }),
       });
 

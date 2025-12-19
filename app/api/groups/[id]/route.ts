@@ -61,7 +61,7 @@ export async function GET(
         coverImage: group.coverImage,
         memberCount: group.memberCount,
         createdAt: group.createdAt,
-        inviteCode: group.inviteCode,
+        visibility: group.visibility,
         hasPassword: !isPublic, // true if has password (private), false if no password (public)
       };
       return NextResponse.json({ group: limitedInfo, isMember: false }, { status: 200 });
@@ -175,11 +175,13 @@ export async function PUT(
     if (validationResult.data.password !== undefined && membership.role === 'owner') {
       if (validationResult.data.password && validationResult.data.password.trim().length > 0) {
         updateData.password = await bcrypt.hash(validationResult.data.password, 10);
+        updateData.visibility = 'private'; // Setting password makes group private
         // If we're setting a password, make sure to unset the unset operation if it exists
         delete unsetData.password;
       } else {
         // Empty string means remove password - use $unset to properly remove the field
         unsetData.password = "";
+        updateData.visibility = 'public'; // Removing password makes group public
       }
     }
 

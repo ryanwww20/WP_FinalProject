@@ -8,8 +8,8 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
+  visibility?: 'public' | 'private';
   memberCount: number;
-  inviteCode: string;
   hasPassword?: boolean; // true if group has password (private), false if no password (public)
 }
 
@@ -38,16 +38,13 @@ export default function GroupHeader({
   const handleJoinGroup = async () => {
     setIsJoining(true);
     try {
-      // Public groups can be joined without password or invite code
+      // Public groups can be joined without password
       const response = await fetch(`/api/groups/${group._id}/join`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          // No password needed for public groups
-          // No invite code needed - public groups can be joined freely
-        }),
+        body: JSON.stringify({}),
       });
 
       const data = await response.json();

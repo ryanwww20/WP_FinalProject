@@ -8,8 +8,8 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
+  visibility?: 'public' | 'private';
   memberCount: number;
-  inviteCode: string;
   maxMembers?: number;
   requireApproval: boolean;
 }
