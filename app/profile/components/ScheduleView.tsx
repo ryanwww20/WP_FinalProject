@@ -1,13 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Course, CourseMeeting } from "@/models/User";
 import ScheduleGrid from "./ScheduleGrid";
 import CourseModal from "./CourseModal";
 import { useCourses } from "./hooks/useCourses";
 
-export default function ScheduleView() {
-  const { courses, isLoading, deleteCourse, saveCourse } = useCourses();
+interface ScheduleViewProps {
+  targetUserId?: string; // If provided, viewing another user's schedule
+  readOnly?: boolean; // If true, disable editing
+}
+
+export default function ScheduleView({ targetUserId, readOnly = false }: ScheduleViewProps) {
+  const { courses: myCourses, isLoading: myIsLoading, deleteCourse, saveCourse } = useCourses();
+  const [viewedCourses, setViewedCourses] = useState<Course[]>([]);
+  const [viewedLoading, setViewedLoading] = useState(false);
+
+  // Fetch other user's courses if viewing their profile
+  useEffect(() => {
+    if (targetUserId) {
+      const fetchUserCourses = async () => {
+        setViewedLoading(true);
+        try {
+          const response = await fetch(`/api/profile/${targetUserId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setViewedCourses(data.user.courses || []);
+          }
+        } catch (error) {
+          console.error("Error fetching user courses:", error);
+        } finally {
+          setViewedLoading(false);
+        }
+      };
+      fetchUserCourses();
+    }
+  }, [targetUserId]);
+
+  const courses = targetUserId ? viewedCourses : myCourses;
+  const isLoading = targetUserId ? viewedLoading : myIsLoading;
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
@@ -110,22 +141,25 @@ export default function ScheduleView() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-700">
-          課表
+          {readOnly ? "Course Schedule" : "課表"}
         </h2>
-        <button
-          onClick={handleAddCourse}
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-        >
-          + 新增課程
-        </button>
+        {!readOnly && (
+          <button
+            onClick={handleAddCourse}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+          >
+            + 新增課程
+          </button>
+        )}
       </div>
 
       {/* Schedule Grid */}
-      <ScheduleGrid
-        courses={courses}
-        onEditCourse={handleEditCourse}
-        onDeleteCourse={handleDeleteCourse}
-      />
+        <ScheduleGrid
+          courses={courses}
+          onEditCourse={readOnly ? undefined : handleEditCourse}
+          onDeleteCourse={readOnly ? undefined : handleDeleteCourse}
+          readOnly={readOnly}
+        />
 
       {/* Add/Edit Course Modal */}
       <CourseModal

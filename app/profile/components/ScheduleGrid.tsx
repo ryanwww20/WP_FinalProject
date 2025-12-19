@@ -5,8 +5,9 @@ import { TIME_SLOT_DEFINITIONS, DAYS_OF_WEEK } from "@/lib/constants";
 
 interface ScheduleGridProps {
   courses: Course[];
-  onEditCourse: (course: Course) => void;
-  onDeleteCourse: (courseId: string | undefined, e?: React.MouseEvent) => void;
+  onEditCourse?: (course: Course) => void;
+  onDeleteCourse?: (courseId: string | undefined, e?: React.MouseEvent) => void;
+  readOnly?: boolean;
 }
 
 /**
@@ -57,6 +58,7 @@ export default function ScheduleGrid({
   courses,
   onEditCourse,
   onDeleteCourse,
+  readOnly = false,
 }: ScheduleGridProps) {
   const timeSlots = TIME_SLOT_DEFINITIONS;
   const daysOfWeek = DAYS_OF_WEEK;
@@ -122,7 +124,7 @@ export default function ScheduleGrid({
                   >
                     {course && slotPosition && (
                       <div
-                        className={`${course.color} text-white rounded px-2 py-1 text-xs shadow-sm cursor-pointer hover:shadow-md transition-shadow flex items-center gap-1.5 h-full group relative`}
+                        className={`${course.color} text-white rounded px-2 py-1 text-xs shadow-sm ${!readOnly ? 'cursor-pointer hover:shadow-md' : ''} transition-shadow flex items-center gap-1.5 h-full group relative`}
                         title={`${course.name}\n${
                           course.teacher ? `教師: ${course.teacher}\n` : ""
                         }${
@@ -130,31 +132,32 @@ export default function ScheduleGrid({
                             (m) => m.dayOfWeek === actualDayOfWeek
                           )?.location || ""
                         }`}
-                        onClick={(e) => {
+                        onClick={!readOnly ? (e) => {
                           // Only trigger edit if clicking on the card itself, not on buttons
                           if (
                             (e.target as HTMLElement).tagName !== "BUTTON" &&
                             !(e.target as HTMLElement).closest("button")
                           ) {
-                            onEditCourse(course);
+                            onEditCourse?.(course);
                           }
-                        }}
+                        } : undefined}
                       >
                         <span className="font-medium truncate flex-1">
                           {course.name}
                         </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDeleteCourse(course.id, e);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0 z-10 relative"
-                          title="刪除課程"
-                          type="button"
-                        >
-                          <svg
-                            className="w-3 h-3"
+                        {!readOnly && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onDeleteCourse?.(course.id, e);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0 z-10 relative"
+                            title="刪除課程"
+                            type="button"
+                          >
+                            <svg
+                              className="w-3 h-3"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                           >
@@ -163,8 +166,9 @@ export default function ScheduleGrid({
                               d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
                               clipRule="evenodd"
                             />
-                          </svg>
-                        </button>
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

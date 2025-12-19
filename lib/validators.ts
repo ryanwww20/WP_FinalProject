@@ -245,7 +245,6 @@ export const updateGroupSchema = z.object({
  * Schema for joining a group
  */
 export const joinGroupSchema = z.object({
-  inviteCode: z.string().trim().toUpperCase().optional(), // Optional - kept for future use but not required in UI
   password: z.string().optional(), // required only if group has password
 });
 

@@ -7,10 +7,14 @@ import { useStatus } from "./StatusContext";
 
 interface ProfileHeaderProps {
   session: Session;
+  targetUserId?: string; // If provided, viewing another user's profile
+  readOnly?: boolean; // If true, disable editing
 }
 
 interface UserProfile {
+  userId?: string;
   name: string;
+  image?: string;
   createdAt: string;
 }
 
@@ -20,7 +24,7 @@ const statusConfig = {
   offline: { color: "bg-gray-500" },
 };
 
-export default function ProfileHeader({ session: initialSession }: ProfileHeaderProps) {
+export default function ProfileHeader({ session: initialSession, targetUserId, readOnly = false }: ProfileHeaderProps) {
   const { data: session, update: updateSession } = useSession();
   const { currentStatus, setCurrentStatus } = useStatus();
   const [isEditing, setIsEditing] = useState(false);
@@ -33,16 +37,23 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
   useEffect(() => {
     async function loadProfile() {
       try {
-        const response = await fetch("/api/profile");
+        const apiUrl = targetUserId ? `/api/profile/${targetUserId}` : "/api/profile";
+        const response = await fetch(apiUrl);
         if (response.ok) {
           const data = await response.json();
           if (data.user) {
             const userName = data.user.name || session?.user?.name || initialSession.user?.name || "";
             setName(userName);
             setProfile({
+              userId: data.user.userId,
               name: data.user.name,
+              image: data.user.image,
               createdAt: data.user.createdAt,
             });
+            if (targetUserId) {
+              // For other users, set their status or default to 'offline'
+              setSelectedStatus(data.user.status || 'offline');
+            }
           }
         }
       } catch (error) {
@@ -50,7 +61,7 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
       }
     }
     loadProfile();
-  }, [session?.user?.name, initialSession.user?.name]);
+  }, [session?.user?.name, initialSession.user?.name, targetUserId]);
 
   // Update selectedStatus when currentStatus changes
   useEffect(() => {
@@ -162,16 +173,16 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 flex-1">
             {/* Avatar */}
             <div className="relative">
-              {(session?.user?.image || initialSession.user?.image) ? (
+              {((readOnly && profile?.image) || session?.user?.image || initialSession.user?.image) ? (
                 <img
-                  src={session?.user?.image || initialSession.user?.image || ""}
-                  alt={session?.user?.name || initialSession.user?.name || "User"}
+                  src={(readOnly && profile?.image) || session?.user?.image || initialSession.user?.image || ""}
+                  alt={(readOnly && profile?.name) || session?.user?.name || initialSession.user?.name || "User"}
                   className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-50 object-cover"
                 />
               ) : (
                 <div className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-50 bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
                   <span className="text-4xl font-bold text-white">
-                    {(session?.user?.name || initialSession.user?.name || "U").charAt(0).toUpperCase()}
+                    {((readOnly && profile?.name) || session?.user?.name || initialSession.user?.name || "U").charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
@@ -181,7 +192,7 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
             <div className="flex-1 pt-20 sm:pt-0 pb-2">
               {/* Username and Status */}
               <div className="flex items-center gap-3 mb-2">
-                {isEditing ? (
+                {isEditing && !readOnly ? (
                   <input
                     type="text"
                     value={name}
@@ -195,7 +206,7 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
                 )}
 
                 {/* Status Dot */}
-                {isEditing ? (
+                {isEditing && !readOnly ? (
                   <select
                     value={selectedStatus}
                     onChange={(e) =>
@@ -211,11 +222,11 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
                   </select>
                 ) : (
                   <div
-                    className={`w-3 h-3 rounded-full ${statusInfo.color}`}
+                    className={`w-3 h-3 rounded-full ${statusConfig[(readOnly ? selectedStatus : currentStatus) || 'offline'].color}`}
                     title={
-                      currentStatus === "studying"
+                      (readOnly ? selectedStatus : currentStatus) === "studying"
                         ? "學習中"
-                        : currentStatus === "busy"
+                        : (readOnly ? selectedStatus : currentStatus) === "busy"
                         ? "忙碌"
                         : "離線"
                     }
@@ -227,7 +238,7 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
               <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-600">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono font-medium">
-                    {session?.user?.userId || initialSession.user?.userId || "N/A"}
+                    {targetUserId || session?.user?.userId || initialSession.user?.userId || "N/A"}
                   </span>
                 </div>
                 <span className="text-gray-500 dark:text-gray-500">•</span>
@@ -237,37 +248,39 @@ export default function ProfileHeader({ session: initialSession }: ProfileHeader
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 pt-20 sm:pt-0">
-            {isEditing ? (
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {isSaving ? "儲存中..." : "儲存"}
-              </button>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                Edit Profile
-              </button>
-            )}
-            {isEditing && (
-              <button
-                onClick={() => {
-                  setIsEditing(false);
-                  setName(profile?.name || session?.user?.name || initialSession.user?.name || "");
-                  setSelectedStatus(currentStatus);
-                }}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-700 bg-gray-200 dark:bg-gray-300 hover:bg-gray-300 dark:hover:bg-gray-400 rounded-lg transition-colors disabled:opacity-50"
-              >
-                取消
-              </button>
-            )}
-          </div>
+          {!readOnly && (
+            <div className="flex items-center gap-2 pt-20 sm:pt-0">
+              {isEditing ? (
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? "儲存中..." : "儲存"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  Edit Profile
+                </button>
+              )}
+              {isEditing && (
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setName(profile?.name || session?.user?.name || initialSession.user?.name || "");
+                    setSelectedStatus(currentStatus);
+                  }}
+                  disabled={isSaving}
+                  className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-700 bg-gray-200 dark:bg-gray-300 hover:bg-gray-300 dark:hover:bg-gray-400 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
