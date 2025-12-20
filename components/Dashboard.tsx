@@ -56,6 +56,47 @@ export default function Dashboard() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [isApiSyncing, setIsApiSyncing] = useState(false);
+  const fetchTodayDataRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Define fetchTodayData early so it can be used in other callbacks
+  const fetchTodayData = useCallback(async () => {
+    try {
+      const now = new Date();
+      const startDate = startOfDay(now).toISOString();
+      const endDate = endOfDay(now).toISOString();
+
+      const [eventsResponse, todosResponse] = await Promise.all([
+        fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/todos?startDate=${startDate}&endDate=${endDate}`),
+      ]);
+
+      if (eventsResponse.ok) {
+        const data = await eventsResponse.json();
+        const events = data.events || [];
+        events.sort((a: CalendarEvent, b: CalendarEvent) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+        setTodaysEvents(events);
+      }
+
+      if (todosResponse.ok) {
+        const todoData = await todosResponse.json();
+        const todos: TodoItem[] = (todoData.todos || []).sort(
+          (a: TodoItem, b: TodoItem) =>
+            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        );
+        setTodaysTodos(todos);
+      }
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  // Update ref synchronously - fetchTodayData is stable (empty deps) and defined above
+  // This must be synchronous to ensure ref is available when useEffect runs
+  fetchTodayDataRef.current = fetchTodayData;
 
   useEffect(() => {
     if (!session?.user?.userId) return;
@@ -67,12 +108,12 @@ export default function Dashboard() {
       const nextMidnight = startOfDay(addDays(now, 1));
       const delay = nextMidnight.getTime() - now.getTime();
       midnightTimeout = setTimeout(() => {
-        fetchTodayData();
+        fetchTodayDataRef.current?.();
         scheduleMidnightRefresh();
       }, delay);
     };
 
-    fetchTodayData();
+    fetchTodayDataRef.current?.();
     scheduleMidnightRefresh();
     checkExistingSession(); // Check for active focus session on mount
 
@@ -127,7 +168,7 @@ export default function Dashboard() {
         // No need for browser events anymore
 
         // Refresh today's data to show updated stats
-        fetchTodayData();
+        fetchTodayDataRef.current?.();
       } else {
         const error = await response.json();
         console.error('Failed to stop session:', error);
@@ -137,7 +178,7 @@ export default function Dashboard() {
     } finally {
       setIsApiSyncing(false);
     }
-  }, [isApiSyncing, sessionStartTime, fetchTodayData]);
+  }, [isApiSyncing, sessionStartTime]);
 
   // Pomodoro Timer Effect
   useEffect(() => {
@@ -173,41 +214,6 @@ export default function Dashboard() {
       }
     };
   }, [isRunning, timeLeft, timerMode, completedPomodoros, stopFocusSession]);
-
-  const fetchTodayData = useCallback(async () => {
-    try {
-      const now = new Date();
-      const startDate = startOfDay(now).toISOString();
-      const endDate = endOfDay(now).toISOString();
-
-      const [eventsResponse, todosResponse] = await Promise.all([
-        fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`),
-        fetch(`/api/todos?startDate=${startDate}&endDate=${endDate}`),
-      ]);
-
-      if (eventsResponse.ok) {
-        const data = await eventsResponse.json();
-        const events = data.events || [];
-        events.sort((a: CalendarEvent, b: CalendarEvent) =>
-          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-        );
-        setTodaysEvents(events);
-      }
-
-      if (todosResponse.ok) {
-        const todoData = await todosResponse.json();
-        const todos: TodoItem[] = (todoData.todos || []).sort(
-          (a: TodoItem, b: TodoItem) =>
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-        );
-        setTodaysTodos(todos);
-      }
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   // Start focus session (API integration)
   const startFocusSession = useCallback(async () => {
