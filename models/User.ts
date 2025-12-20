@@ -40,6 +40,10 @@ export interface IUser extends Document {
       sunday: number;
     };
   };
+  googleCalendarAccessToken?: string; // Google Calendar access token
+  googleCalendarRefreshToken?: string; // Google Calendar refresh token
+  googleCalendarEnabled?: boolean; // Whether Google Calendar is enabled
+  googleCalendarSyncToken?: string; // Calendar-level sync token
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,6 +150,19 @@ const UserSchema: Schema<IUser> = new Schema(
         saturday: { type: Number, default: 0 },
         sunday: { type: Number, default: 0 },
       },
+    },
+    googleCalendarAccessToken: {
+      type: String,
+    },
+    googleCalendarRefreshToken: {
+      type: String,
+    },
+    googleCalendarEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    googleCalendarSyncToken: {
+      type: String,
     },
   },
   {

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { useSession } from "next-auth/react";
+import LocationFormModal from "./LocationFormModal";
 
 // 地圖容器樣式
 const mapContainerStyle = {
@@ -53,6 +54,11 @@ interface MemberLocation {
   lat: number;
   lng: number;
   address: string;
+  placeName?: string;
+  studyUntil?: string;
+  crowdedness?: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy';
+  hasOutlet?: boolean;
+  hasWifi?: boolean;
   updatedAt: string;
 }
 
@@ -74,6 +80,8 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
   const [filterType, setFilterType] = useState<"all" | "bookstore" | "cafe">("all");
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [currentUserLocation, setCurrentUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showLocationForm, setShowLocationForm] = useState(false);
+  const [isRemovingLocation, setIsRemovingLocation] = useState(false);
   const mapRef = useRef<any>(null);
 
   // 取得 Google Maps API Key（從環境變數）
@@ -158,6 +166,45 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
     }
   };
 
+  // 格式化擁擠程度
+  const formatCrowdedness = (crowdedness?: string): string => {
+    const map: Record<string, { emoji: string; label: string }> = {
+      'empty': { emoji: '🟢', label: '空曠' },
+      'quiet': { emoji: '🟡', label: '安靜' },
+      'moderate': { emoji: '🟠', label: '普通' },
+      'busy': { emoji: '🔴', label: '擁擠' },
+      'very-busy': { emoji: '⛔', label: '非常擁擠' },
+    };
+    return crowdedness && map[crowdedness] 
+      ? `${map[crowdedness].emoji} ${map[crowdedness].label}`
+      : '';
+  };
+
+  // 格式化預計時間
+  const formatStudyUntil = (studyUntil?: string): string => {
+    if (!studyUntil) return '';
+    const date = new Date(studyUntil);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 0) {
+      return '已過期';
+    } else if (diffMins < 60) {
+      return `${diffMins} 分鐘後`;
+    } else if (diffHours < 24) {
+      return `${diffHours} 小時後`;
+    } else {
+      return date.toLocaleString("zh-TW", {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+  };
+
   // 切換地圖類型
   const handleMapTypeChange = (type: "roadmap" | "satellite" | "hybrid" | "terrain") => {
     setMapType(type);
@@ -220,8 +267,8 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
     }
   };
 
-  // 更新位置
-  const handleUpdateLocation = async () => {
+  // 獲取當前位置並打開表單
+  const handleOpenLocationForm = async () => {
     if (!session?.user?.userId) {
       alert("請先登入");
       return;
@@ -237,6 +284,47 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       // 獲取地址（可選）
       const address = await getAddressFromCoordinates(lat, lng);
 
+      setCurrentUserLocation({ lat, lng });
+      setShowLocationForm(true);
+
+      // 將地圖中心移動到新位置
+      if (map) {
+        map.setCenter({ lat, lng });
+        map.setZoom(15);
+      }
+    } catch (error: any) {
+      console.error("Error getting location:", error);
+      if (error.message.includes("Geolocation")) {
+        alert("無法獲取您的位置。請確保已允許瀏覽器存取位置資訊。");
+      } else {
+        alert("獲取位置時發生錯誤：" + error.message);
+      }
+    } finally {
+      setIsUpdatingLocation(false);
+    }
+  };
+
+  // 提交位置資訊
+  const handleSubmitLocation = async (formData: {
+    placeName: string;
+    studyUntil: string;
+    crowdedness: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy' | '';
+    hasOutlet: boolean;
+    hasWifi: boolean;
+  }) => {
+    if (!session?.user?.userId || !currentUserLocation) {
+      alert("請先獲取位置");
+      return;
+    }
+
+    setIsUpdatingLocation(true);
+    try {
+      // 獲取地址
+      const address = await getAddressFromCoordinates(
+        currentUserLocation.lat,
+        currentUserLocation.lng
+      );
+
       // 更新到伺服器
       const response = await fetch(`/api/groups/${groupId}/location`, {
         method: "PUT",
@@ -244,39 +332,66 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          lat,
-          lng,
+          lat: currentUserLocation.lat,
+          lng: currentUserLocation.lng,
           address,
+          placeName: formData.placeName || undefined,
+          studyUntil: formData.studyUntil || undefined,
+          crowdedness: formData.crowdedness || undefined,
+          hasOutlet: formData.hasOutlet,
+          hasWifi: formData.hasWifi,
         }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setCurrentUserLocation({ lat, lng });
-        
         // 重新載入成員位置
         await fetchMemberLocations();
-
-        // 將地圖中心移動到新位置
-        if (map) {
-          map.setCenter({ lat, lng });
-          map.setZoom(15);
-        }
-
-        alert("位置已更新！");
+        setShowLocationForm(false);
+        setCurrentUserLocation(null);
+        alert("位置已發布！");
       } else {
         const error = await response.json();
-        alert(error.error || "更新位置失敗");
+        alert(error.error || "發布位置失敗");
       }
     } catch (error: any) {
       console.error("Error updating location:", error);
-      if (error.message.includes("Geolocation")) {
-        alert("無法獲取您的位置。請確保已允許瀏覽器存取位置資訊。");
-      } else {
-        alert("更新位置時發生錯誤：" + error.message);
-      }
+      alert("發布位置時發生錯誤：" + error.message);
     } finally {
       setIsUpdatingLocation(false);
+    }
+  };
+
+  // 取消發布位置
+  const handleRemoveLocation = async () => {
+    if (!session?.user?.userId) {
+      alert("請先登入");
+      return;
+    }
+
+    if (!confirm("確定要取消發布位置嗎？您的標記將從地圖上消失。")) {
+      return;
+    }
+
+    setIsRemovingLocation(true);
+    try {
+      const response = await fetch(`/api/groups/${groupId}/location`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        // 重新載入成員位置
+        await fetchMemberLocations();
+        setCurrentUserLocation(null);
+        alert("位置已取消發布！");
+      } else {
+        const error = await response.json();
+        alert(error.error || "取消發布失敗");
+      }
+    } catch (error: any) {
+      console.error("Error removing location:", error);
+      alert("取消發布時發生錯誤：" + error.message);
+    } finally {
+      setIsRemovingLocation(false);
     }
   };
 
@@ -337,9 +452,9 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       {/* 控制面板 */}
       <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div className="flex flex-wrap gap-2 items-center">
-          {/* 更新位置按鈕 */}
+          {/* 發布位置按鈕 */}
           <button
-            onClick={handleUpdateLocation}
+            onClick={handleOpenLocationForm}
             disabled={isUpdatingLocation}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               isUpdatingLocation
@@ -350,12 +465,34 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
             {isUpdatingLocation ? (
               <>
                 <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                更新中...
+                獲取位置中...
               </>
             ) : (
-              "📍 更新位置"
+              "📍 發布位置"
             )}
           </button>
+
+          {/* 取消發布位置按鈕（僅當用戶已發布位置時顯示） */}
+          {memberLocations.some(loc => loc.userId === session?.user?.userId) && (
+            <button
+              onClick={handleRemoveLocation}
+              disabled={isRemovingLocation}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isRemovingLocation
+                  ? "bg-gray-400 text-white cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              {isRemovingLocation ? (
+                <>
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                  取消中...
+                </>
+              ) : (
+                "❌ 取消發布"
+              )}
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -507,7 +644,7 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 position={{ lat: selectedMemberLocation.lat, lng: selectedMemberLocation.lng }}
                 onCloseClick={handleInfoWindowClose}
               >
-                <div className="p-2 min-w-[200px]">
+                <div className="p-2 min-w-[250px] max-w-[300px]">
                   <div className="flex items-center gap-2 mb-2">
                     {selectedMemberLocation.userImage && (
                       <img
@@ -524,12 +661,50 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                       </span>
                     </div>
                   </div>
+                  
+                  {/* 地點名稱 */}
+                  {selectedMemberLocation.placeName && (
+                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                      📚 {selectedMemberLocation.placeName}
+                    </p>
+                  )}
+                  
+                  {/* 地址 */}
                   {selectedMemberLocation.address && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                       📍 {selectedMemberLocation.address}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500">
+
+                  {/* 預計讀到幾點 */}
+                  {selectedMemberLocation.studyUntil && (
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                      ⏰ 預計讀到：{formatStudyUntil(selectedMemberLocation.studyUntil)}
+                    </p>
+                  )}
+
+                  {/* 擁擠程度 */}
+                  {selectedMemberLocation.crowdedness && (
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                      {formatCrowdedness(selectedMemberLocation.crowdedness)}
+                    </p>
+                  )}
+
+                  {/* 設施 */}
+                  <div className="flex gap-3 text-sm text-gray-700 dark:text-gray-300 mb-2">
+                    {selectedMemberLocation.hasOutlet && (
+                      <span className="flex items-center gap-1">
+                        🔌 插座
+                      </span>
+                    )}
+                    {selectedMemberLocation.hasWifi && (
+                      <span className="flex items-center gap-1">
+                        📶 網路
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-500 border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
                     更新時間：{new Date(selectedMemberLocation.updatedAt).toLocaleString("zh-TW")}
                   </p>
                 </div>
@@ -621,9 +796,30 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                     </span>
                   </div>
                 </div>
-                {memberLocation.address && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{memberLocation.address}</p>
+                {memberLocation.placeName && (
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                    📚 {memberLocation.placeName}
+                  </p>
                 )}
+                {memberLocation.address && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    📍 {memberLocation.address}
+                  </p>
+                )}
+                {memberLocation.studyUntil && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    ⏰ {formatStudyUntil(memberLocation.studyUntil)}
+                  </p>
+                )}
+                {memberLocation.crowdedness && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    {formatCrowdedness(memberLocation.crowdedness)}
+                  </p>
+                )}
+                <div className="flex gap-2 text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  {memberLocation.hasOutlet && <span>🔌</span>}
+                  {memberLocation.hasWifi && <span>📶</span>}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {new Date(memberLocation.updatedAt).toLocaleString("zh-TW")}
                 </p>
@@ -637,9 +833,20 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       {filteredLocations.length === 0 && memberLocations.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p className="text-lg mb-2">暫無位置標記</p>
-          <p className="text-sm mb-4">點擊「更新位置」按鈕來分享您的位置</p>
+          <p className="text-sm mb-4">點擊「發布位置」按鈕來分享您的位置</p>
         </div>
       )}
+
+      {/* 位置資訊表單模組 */}
+      <LocationFormModal
+        isOpen={showLocationForm}
+        onClose={() => {
+          setShowLocationForm(false);
+          setCurrentUserLocation(null);
+        }}
+        onSubmit={handleSubmitLocation}
+        isSubmitting={isUpdatingLocation}
+      />
     </div>
   );
 }

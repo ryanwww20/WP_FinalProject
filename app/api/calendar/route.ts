@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import Event from '@/models/Event';
+import User from '@/models/User';
+import { syncEventToGoogle } from '@/lib/google-calendar';
 
 // GET /api/calendar - Get events for a date range
 export async function GET(request: NextRequest) {
@@ -79,7 +81,19 @@ export async function POST(request: NextRequest) {
       notification: notification || 'No Notification',
       location: location || 'No Location',
       description: description || '',
+      syncStatus: 'pending', // Will be synced if Google Calendar is connected
     });
+
+    // Sync to Google Calendar if connected
+    try {
+      const user = await User.findOne({ userId: session.user.userId });
+      if (user?.googleCalendarEnabled) {
+        await syncEventToGoogle(event, session.user.userId);
+      }
+    } catch (error) {
+      // Don't fail the request if Google Calendar sync fails
+      console.error('Error syncing event to Google Calendar:', error);
+    }
 
     return NextResponse.json({ event }, { status: 201 });
   } catch (error) {

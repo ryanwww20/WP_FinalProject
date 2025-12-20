@@ -9,6 +9,10 @@ export interface IEvent extends Document {
   notification?: string; // e.g., "No Notification", "5 minutes before", etc.
   location?: string;
   description?: string;
+  googleCalendarId?: string; // Google Calendar event ID
+  googleCalendarSyncToken?: string; // Sync token for this event
+  lastSyncedAt?: Date; // Last sync time
+  syncStatus?: 'synced' | 'pending' | 'failed'; // Sync status
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +49,20 @@ const EventSchema: Schema<IEvent> = new Schema(
     description: {
       type: String,
     },
+    googleCalendarId: {
+      type: String,
+    },
+    googleCalendarSyncToken: {
+      type: String,
+    },
+    lastSyncedAt: {
+      type: Date,
+    },
+    syncStatus: {
+      type: String,
+      enum: ['synced', 'pending', 'failed'],
+      default: 'pending',
+    },
   },
   {
     timestamps: true,
@@ -53,6 +71,8 @@ const EventSchema: Schema<IEvent> = new Schema(
 
 // Create index on userId and startTime for efficient queries
 EventSchema.index({ userId: 1, startTime: 1 });
+// Create index on googleCalendarId for efficient lookups
+EventSchema.index({ googleCalendarId: 1 });
 
 // Prevent model recompilation during hot reload
 const Event: Model<IEvent> =

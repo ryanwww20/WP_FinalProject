@@ -98,6 +98,11 @@ PUSHER_SECRET=your_secret
 # Get API key from: https://console.cloud.google.com/
 # See GOOGLE_MAPS_SETUP.md for detailed setup instructions
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+
+# Google Calendar API (optional, for calendar sync feature)
+# Enable Calendar API in Google Cloud Console
+# Use the same GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET as above
+GOOGLE_CALENDAR_ENABLED=true
 ```
 
 ### 4. Generate NextAuth Secret
@@ -132,6 +137,22 @@ Copy the output and paste it as the `NEXTAUTH_SECRET` value in `.env.local`.
 6. Copy the API Key to `.env.local` as `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
 
 For detailed setup instructions, see [GOOGLE_MAPS_SETUP.md](./GOOGLE_MAPS_SETUP.md)
+
+### Google Calendar API (for Calendar Sync Feature)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Select the same project used for Google OAuth
+3. Enable the **Google Calendar API**
+4. Go to "APIs & Services" → "OAuth consent screen"
+5. Ensure your OAuth consent screen is configured (required for Calendar API)
+6. Go to "Credentials" → Select your existing OAuth 2.0 Client ID
+7. Add authorized redirect URI: `http://localhost:3000/api/google-calendar/callback` (or your production URL)
+8. The same `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` will be used
+9. Add `GOOGLE_CALENDAR_ENABLED=true` to `.env.local` (optional, defaults to enabled if credentials exist)
+
+**Note**: Users will need to connect their Google Calendar account through the calendar page UI. The sync feature supports bidirectional synchronization between local events and Google Calendar.
+
+For production environment setup, see [GOOGLE_CALENDAR_PRODUCTION_SETUP.md](./GOOGLE_CALENDAR_PRODUCTION_SETUP.md)
 
 ### GitHub OAuth
 
@@ -223,6 +244,7 @@ WP_FinalProject/
 - **mongoose**: ^8.5.1 - MongoDB ODM
 - **tailwindcss**: ^3.4.1 - CSS framework
 - **typescript**: ^5 - Type safety
+- **googleapis**: Latest - Google Calendar API integration
 
 ## 🌐 Database Schema
 

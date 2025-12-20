@@ -24,6 +24,12 @@ export interface IGroupMember extends Document {
     lat: number;
     lng: number;
     address?: string;
+    // Additional study location information
+    placeName?: string; // 在哪裡讀書（地點名稱）
+    studyUntil?: Date; // 預計讀到幾點
+    crowdedness?: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy'; // 店內人是否壅擠
+    hasOutlet?: boolean; // 是否有插座
+    hasWifi?: boolean; // 是否有網路
     updatedAt: Date;
   };
   createdAt: Date;
@@ -86,6 +92,27 @@ const GroupMemberSchema: Schema<IGroupMember> = new Schema(
       },
       address: {
         type: String,
+        required: false,
+      },
+      placeName: {
+        type: String,
+        required: false,
+      },
+      studyUntil: {
+        type: Date,
+        required: false,
+      },
+      crowdedness: {
+        type: String,
+        enum: ['empty', 'quiet', 'moderate', 'busy', 'very-busy'],
+        required: false,
+      },
+      hasOutlet: {
+        type: Boolean,
+        required: false,
+      },
+      hasWifi: {
+        type: Boolean,
         required: false,
       },
       updatedAt: {

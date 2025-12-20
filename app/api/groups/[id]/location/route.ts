@@ -34,7 +34,16 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { lat, lng, address } = body;
+    const { 
+      lat, 
+      lng, 
+      address, 
+      placeName, 
+      studyUntil, 
+      crowdedness, 
+      hasOutlet, 
+      hasWifi 
+    } = body;
 
     // 驗證輸入
     if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -47,6 +56,14 @@ export async function PUT(
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return NextResponse.json(
         { error: 'Invalid coordinates. lat must be between -90 and 90, lng must be between -180 and 180.' },
+        { status: 400 }
+      );
+    }
+
+    // 驗證擁擠程度
+    if (crowdedness && !['empty', 'quiet', 'moderate', 'busy', 'very-busy'].includes(crowdedness)) {
+      return NextResponse.json(
+        { error: 'Invalid crowdedness value. Must be one of: empty, quiet, moderate, busy, very-busy' },
         { status: 400 }
       );
     }
@@ -69,6 +86,11 @@ export async function PUT(
       lat,
       lng,
       address: address || undefined,
+      placeName: placeName || undefined,
+      studyUntil: studyUntil ? new Date(studyUntil) : undefined,
+      crowdedness: crowdedness || undefined,
+      hasOutlet: hasOutlet !== undefined ? Boolean(hasOutlet) : undefined,
+      hasWifi: hasWifi !== undefined ? Boolean(hasWifi) : undefined,
       updatedAt: new Date(),
     };
 
@@ -92,6 +114,11 @@ export async function PUT(
           lat: membership.location.lat,
           lng: membership.location.lng,
           address: membership.location.address || undefined,
+          placeName: membership.location.placeName || undefined,
+          studyUntil: membership.location.studyUntil?.toISOString() || undefined,
+          crowdedness: membership.location.crowdedness || undefined,
+          hasOutlet: membership.location.hasOutlet,
+          hasWifi: membership.location.hasWifi,
           updatedAt: membership.location.updatedAt.toISOString(),
         },
       };
@@ -184,6 +211,11 @@ export async function GET(
           lat: member.location.lat,
           lng: member.location.lng,
           address: member.location.address || '',
+          placeName: member.location.placeName || undefined,
+          studyUntil: member.location.studyUntil || undefined,
+          crowdedness: member.location.crowdedness || undefined,
+          hasOutlet: member.location.hasOutlet,
+          hasWifi: member.location.hasWifi,
           updatedAt: member.location.updatedAt,
         };
       });
