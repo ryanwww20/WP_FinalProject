@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import Dashboard from "@/components/Dashboard";
+import DashboardWithBackground from "@/components/DashboardWithBackground";
 import HomeClient from "./HomeClient";
 
 export default async function Home() {
@@ -13,11 +13,7 @@ export default async function Home() {
   }
 
   if (session) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] bg-muted/40">
-        <Dashboard />
-      </div>
-    );
+    return <DashboardWithBackground />;
   }
 
   return <HomeClient />;
