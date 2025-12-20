@@ -5,7 +5,6 @@ import connectDB from '@/lib/mongodb';
 import Group from '@/models/Group';
 import GroupMember from '@/models/GroupMember';
 import { createGroupSchema } from '@/lib/validators';
-import { generateInviteCode } from '@/lib/group-utils';
 import bcrypt from 'bcryptjs';
 
 // GET /api/groups - Get all groups the user is a member of
@@ -90,12 +89,13 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // Generate unique invite code
-    let inviteCode = generateInviteCode();
-    let codeExists = await Group.findOne({ inviteCode });
-    while (codeExists) {
-      inviteCode = generateInviteCode();
-      codeExists = await Group.findOne({ inviteCode });
+    // Check if group name already exists
+    const existingGroup = await Group.findOne({ name: name.trim() });
+    if (existingGroup) {
+      return NextResponse.json(
+        { error: 'A group with this name already exists. Please choose a different name.' },
+        { status: 400 }
+      );
     }
 
     // Hash password if provided
@@ -114,7 +114,6 @@ export async function POST(request: NextRequest) {
       password: hashedPassword,
       maxMembers: maxMembers || undefined,
       requireApproval: requireApproval || false,
-      inviteCode,
       memberCount: 0,
     });
 
@@ -139,11 +138,11 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating group:', error);
     
-    // Handle duplicate invite code (shouldn't happen, but just in case)
+    // Handle duplicate group name
     if (error.code === 11000) {
       return NextResponse.json(
-        { error: 'Group creation failed. Please try again.' },
-        { status: 500 }
+        { error: 'A group with this name already exists. Please choose a different name.' },
+        { status: 400 }
       );
     }
 

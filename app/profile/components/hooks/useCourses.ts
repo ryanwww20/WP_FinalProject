@@ -26,11 +26,11 @@ export function useCourses() {
   const deleteCourse = async (courseId: string | undefined): Promise<boolean> => {
     if (!courseId) {
       console.error("Course ID is missing");
-      alert("無法刪除：課程 ID 不存在");
+      alert("Unable to delete: Course ID does not exist");
       return false;
     }
 
-    if (!confirm("確定要刪除此課程嗎？")) {
+    if (!confirm("Are you sure you want to delete this course?")) {
       return false;
     }
 
@@ -48,12 +48,12 @@ export function useCourses() {
       } else {
         const error = await response.json();
         console.error("Delete failed:", error);
-        alert(`刪除失敗: ${error.error}`);
+        alert(`Delete failed: ${error.error}`);
         return false;
       }
     } catch (error) {
       console.error("Error deleting course:", error);
-      alert("刪除失敗，請稍後再試");
+      alert("Delete failed, please try again later");
       return false;
     }
   };
@@ -90,12 +90,12 @@ export function useCourses() {
         return true;
       } else {
         const error = await response.json();
-        alert(`操作失敗: ${error.error}`);
+        alert(`Operation failed: ${error.error}`);
         return false;
       }
     } catch (error) {
       console.error("Error saving course:", error);
-      alert("操作失敗，請稍後再試");
+      alert("Operation failed, please try again later");
       return false;
     }
   };

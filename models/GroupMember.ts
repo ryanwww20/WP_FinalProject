@@ -6,19 +6,13 @@ export interface IGroupMember extends Document {
   role: 'owner' | 'admin' | 'member';
   joinedAt: Date;
   lastActiveAt: Date;
-  // Stats for ranking
-  totalStudyTime: number; // total minutes studied in this group
-  pomodoroCount: number; // total pomodoros completed in this group
-  // Weekly stats for ranking
-  weeklyStats: {
-    monday: number;
-    tuesday: number;
-    wednesday: number;
-    thursday: number;
-    friday: number;
-    saturday: number;
-    sunday: number;
-  };
+  
+  // ============================================================================
+  // IMPORTANT: Stats are stored per-user in User.studyStats (not here!)
+  // Groups fetch user stats for ranking purposes.
+  // This avoids redundant data (same stats duplicated across multiple groups).
+  // ============================================================================
+  
   // Location for map feature
   location?: {
     lat: number;
@@ -61,25 +55,6 @@ const GroupMemberSchema: Schema<IGroupMember> = new Schema(
     lastActiveAt: {
       type: Date,
       default: Date.now,
-    },
-    totalStudyTime: {
-      type: Number,
-      default: 0, // minutes
-      min: 0,
-    },
-    pomodoroCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    weeklyStats: {
-      monday: { type: Number, default: 0 },
-      tuesday: { type: Number, default: 0 },
-      wednesday: { type: Number, default: 0 },
-      thursday: { type: Number, default: 0 },
-      friday: { type: Number, default: 0 },
-      saturday: { type: Number, default: 0 },
-      sunday: { type: Number, default: 0 },
     },
     location: {
       lat: {

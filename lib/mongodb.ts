@@ -31,6 +31,9 @@ async function connectDB(): Promise<typeof mongoose> {
     );
   }
 
+  // TypeScript type assertion: we've verified MONGODB_URI is defined above
+  const mongoUri = MONGODB_URI as string;
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -40,7 +43,7 @@ async function connectDB(): Promise<typeof mongoose> {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+    cached.promise = mongoose.connect(mongoUri, opts).then((mongoose) => {
       return mongoose;
     });
   }

@@ -54,6 +54,8 @@ export default function Dashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [isApiSyncing, setIsApiSyncing] = useState(false);
 
   useEffect(() => {
     if (!session?.user?.userId) return;
@@ -72,11 +74,70 @@ export default function Dashboard() {
 
     fetchTodayData();
     scheduleMidnightRefresh();
+    checkExistingSession(); // Check for active focus session on mount
 
     return () => {
       clearTimeout(midnightTimeout);
     };
   }, [session?.user?.userId]);
+
+  // Check for existing focus session on mount
+  const checkExistingSession = async () => {
+    try {
+      const response = await fetch('/api/focus-session');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.isActive && data.session) {
+          // Resume the session from server state
+          setSessionStartTime(new Date(data.session.startedAt));
+          const elapsedSeconds = Math.floor((Date.now() - new Date(data.session.startedAt).getTime()) / 1000);
+          const remainingSeconds = (data.session.targetDuration || 25) * 60 - elapsedSeconds;
+
+          if (remainingSeconds > 0) {
+            setTimeLeft(remainingSeconds);
+            setIsRunning(true);
+            setTimerMode('work');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing session:', error);
+    }
+  };
+
+  // Stop focus session (API integration) - defined early for use in useEffect
+  const stopFocusSession = useCallback(async () => {
+    if (isApiSyncing || !sessionStartTime) return;
+
+    setIsApiSyncing(true);
+    try {
+      console.log('[Dashboard] Stopping focus session...');
+      const response = await fetch('/api/focus-session', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[Dashboard] Session completed: ${data.studyTime} minutes studied`);
+        setSessionStartTime(null);
+
+        // Pusher now handles real-time updates to all group components
+        // No need for browser events anymore
+
+        // Refresh today's data to show updated stats
+        fetchTodayData();
+      } else {
+        const error = await response.json();
+        console.error('Failed to stop session:', error);
+      }
+    } catch (error) {
+      console.error('Error stopping session:', error);
+    } finally {
+      setIsApiSyncing(false);
+    }
+  }, [isApiSyncing, sessionStartTime, fetchTodayData]);
 
   // Pomodoro Timer Effect
   useEffect(() => {
@@ -84,9 +145,11 @@ export default function Dashboard() {
       intervalRef.current = setInterval(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && isRunning) {
       // Timer completed
       if (timerMode === "work") {
+        // Work session completed - sync with API
+        stopFocusSession();
         setCompletedPomodoros((prev) => prev + 1);
         // After 4 pomodoros, take a long break
         if ((completedPomodoros + 1) % 4 === 0) {
@@ -97,6 +160,7 @@ export default function Dashboard() {
           setTimeLeft(TIMER_SETTINGS.shortBreak);
         }
       } else {
+        // Break completed - back to work mode
         setTimerMode("work");
         setTimeLeft(TIMER_SETTINGS.work);
       }
@@ -108,9 +172,9 @@ export default function Dashboard() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, timeLeft, timerMode, completedPomodoros]);
+  }, [isRunning, timeLeft, timerMode, completedPomodoros, stopFocusSession]);
 
-  const fetchTodayData = async () => {
+  const fetchTodayData = useCallback(async () => {
     try {
       const now = new Date();
       const startDate = startOfDay(now).toISOString();
@@ -124,7 +188,7 @@ export default function Dashboard() {
       if (eventsResponse.ok) {
         const data = await eventsResponse.json();
         const events = data.events || [];
-        events.sort((a: CalendarEvent, b: CalendarEvent) => 
+        events.sort((a: CalendarEvent, b: CalendarEvent) =>
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
         );
         setTodaysEvents(events);
@@ -143,23 +207,85 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Start focus session (API integration)
+  const startFocusSession = useCallback(async () => {
+    if (isApiSyncing) return;
+
+    setIsApiSyncing(true);
+    try {
+      console.log('[Dashboard] Starting focus session...');
+      const response = await fetch('/api/focus-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionType: 'pomodoro',
+          targetDuration: Math.floor(TIMER_SETTINGS.work / 60), // Convert seconds to minutes
+        }),
+      });
+
+      console.log('[Dashboard] Focus session API response:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[Dashboard] Focus session started:', data);
+        setSessionStartTime(new Date(data.session.startedAt));
+        setIsRunning(true);
+      } else {
+        const error = await response.json();
+        console.error('Failed to start session:', error);
+        alert(error.error || 'Failed to start focus session');
+      }
+    } catch (error) {
+      console.error('Error starting session:', error);
+      alert('Failed to start focus session. Please try again.');
+    } finally {
+      setIsApiSyncing(false);
+    }
+  }, [isApiSyncing]);
 
   // Timer controls
   const toggleTimer = useCallback(() => {
-    setIsRunning((prev) => !prev);
-  }, []);
+    if (!isRunning) {
+      // Starting timer
+      if (timerMode === 'work' && !sessionStartTime) {
+        // Starting a work session - sync with API
+        startFocusSession();
+      } else {
+        // Starting a break or resuming
+        setIsRunning(true);
+      }
+    } else {
+      // Pausing timer
+      if (timerMode === 'work' && sessionStartTime) {
+        // Pausing work session - stop API session
+        stopFocusSession();
+      }
+      setIsRunning(false);
+    }
+  }, [isRunning, timerMode, sessionStartTime, startFocusSession, stopFocusSession]);
 
   const resetTimer = useCallback(() => {
+    if (isRunning && timerMode === 'work' && sessionStartTime) {
+      // Stop API session when resetting active work timer
+      stopFocusSession();
+    }
     setIsRunning(false);
     setTimeLeft(TIMER_SETTINGS[timerMode]);
-  }, [timerMode]);
+    setSessionStartTime(null);
+  }, [timerMode, isRunning, sessionStartTime, stopFocusSession]);
 
   const switchMode = useCallback((mode: TimerMode) => {
+    if (isRunning && timerMode === 'work' && sessionStartTime) {
+      // Stop API session when switching modes
+      stopFocusSession();
+    }
     setIsRunning(false);
     setTimerMode(mode);
     setTimeLeft(TIMER_SETTINGS[mode]);
-  }, []);
+    setSessionStartTime(null);
+  }, [isRunning, timerMode, sessionStartTime, stopFocusSession]);
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -192,10 +318,10 @@ export default function Dashboard() {
   return (
     <>
       {/* Focus Mode Overlay - Always rendered, controlled by CSS */}
-      <div 
+      <div
         className={`fixed inset-0 bg-gray-950 z-40 flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
-          isFocusMode 
-            ? 'opacity-100 pointer-events-auto' 
+          isFocusMode
+            ? 'opacity-100 pointer-events-auto'
             : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -206,11 +332,11 @@ export default function Dashboard() {
             backgroundSize: '40px 40px'
           }} />
       </div>
-      
+
         {/* Main Content */}
         <div className={`relative z-10 text-center transition-all duration-700 ease-out ${
-          isFocusMode 
-            ? 'opacity-100 scale-100 translate-y-0' 
+          isFocusMode
+            ? 'opacity-100 scale-100 translate-y-0'
             : 'opacity-0 scale-95 translate-y-8'
         }`}>
           {/* Focus Mode Label */}
@@ -285,11 +411,11 @@ export default function Dashboard() {
           Press <span className="text-gray-400">Pause</span> to exit focus mode
         </div>
           </div>
-          
+
       {/* Main Dashboard Content */}
       <div className={`w-full max-w-6xl mx-auto space-y-8 p-4 transition-all duration-700 ease-in-out ${
-        isFocusMode 
-          ? 'opacity-0 scale-95 pointer-events-none' 
+        isFocusMode
+          ? 'opacity-0 scale-95 pointer-events-none'
           : 'opacity-100 scale-100 pointer-events-auto'
       }`}>
         {/* Header Section */}
@@ -302,7 +428,7 @@ export default function Dashboard() {
               Here's what's happening today, {format(new Date(), "MMMM do")}
             </p>
           </div>
-          <Link 
+          <Link
             href="/calendar"
             className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow transition-colors flex items-center gap-2 text-sm font-medium"
           >
@@ -319,7 +445,7 @@ export default function Dashboard() {
             <div className="bg-card rounded-xl shadow-sm border border-border p-8">
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-foreground mb-6">Pomodoro Timer</h2>
-                
+
                 {/* Mode Selector */}
                 <div className="flex justify-center gap-2 mb-8">
                   <button
