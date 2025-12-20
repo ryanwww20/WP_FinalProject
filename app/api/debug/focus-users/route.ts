@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 
+// Force dynamic rendering since we use getServerSession
+export const dynamic = 'force-dynamic';
+
 // GET /api/debug/focus-users - Get ALL users with their focus session status (for debugging)
 export async function GET(request: NextRequest) {
   try {

@@ -5,6 +5,9 @@ import connectDB from '@/lib/mongodb';
 import Group from '@/models/Group';
 import GroupMember from '@/models/GroupMember';
 
+// Force dynamic rendering since we use getServerSession
+export const dynamic = 'force-dynamic';
+
 // GET /api/groups/public - Get all groups (for browsing)
 // Returns all groups but marks which are public (no password) vs private (has password)
 export async function GET(request: NextRequest) {

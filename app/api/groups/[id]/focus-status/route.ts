@@ -83,7 +83,6 @@ export async function GET(
       focusSession: {
         startedAt: user.focusSession?.startedAt,
         targetDuration: user.focusSession?.targetDuration,
-        sessionType: user.focusSession?.sessionType,
         elapsedMinutes: user.focusSession?.startedAt
           ? Math.floor((Date.now() - new Date(user.focusSession.startedAt).getTime()) / 60000)
           : 0,

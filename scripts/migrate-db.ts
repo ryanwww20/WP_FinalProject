@@ -24,6 +24,10 @@ if (!MONGODB_URI) {
   throw new Error('Please define MONGODB_URI in .env.local');
 }
 
+// TypeScript type assertion: we've verified MONGODB_URI is defined above
+// Use non-null assertion since we've already checked it's not undefined
+const mongoUri = MONGODB_URI as string;
+
 interface MigrationStats {
   collection: string;
   documentsChecked: number;
@@ -38,10 +42,13 @@ async function migrateDatabase() {
   try {
     console.log('🚀 Starting database migration...\n');
     console.log('Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(mongoUri);
     console.log('✅ Connected successfully!\n');
 
     const db = mongoose.connection.db;
+    if (!db) {
+      throw new Error('Failed to get database instance from MongoDB connection');
+    }
 
     // ========================================================================
     // 1. MIGRATE USERS COLLECTION
