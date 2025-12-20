@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import Dashboard from "./Dashboard";
 import Navbar from "./Navbar";
+import PomodoroTimer from "./PomodoroTimer";
 
 export default function DashboardWithBackground() {
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -101,10 +102,7 @@ export default function DashboardWithBackground() {
         }}
       >
         {/* 3D Transform 容器 - preserve-3d 讓子元素保持 3D 空間 */}
-        <div className="w-full h-full [transform-style:preserve-3d]" style={{
-          transformOrigin: "0 0",
-          transform: "perspective(800px) rotateY(-12deg) rotateX(-5deg) skewY(-2.5deg)",
-        }}>
+        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateY(-12deg)_rotateX(-2deg)_skewY(-2.5deg)]">
           {/* Monitor Screen - Dashboard Container */}
           {/* 3D Transform: rotateY(左右傾斜) rotateX(上下傾斜) translateZ(前後移動) */}
           {/* 調整方式：
@@ -112,7 +110,7 @@ export default function DashboardWithBackground() {
               - rotateX(0deg 到 15deg): 上下傾斜，正值向下（俯視），負值向上（仰視）
               - translateZ(0px): 前後移動，正值向前，負值向後
           */}
-          <div className="w-full h-full bg-background backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl border border-border/50 [transform:rotateY(-2deg)_rotateX(5deg)_translateZ(0px)] flex flex-col">
+          <div className="w-full h-full bg-background backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl border border-border/50 flex flex-col">
           {/* Monitor Top Bar */}
           <div className="h-6 bg-muted/80 flex items-center px-3 gap-1.5 border-b border-border/50 flex-shrink-0">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
@@ -161,20 +159,8 @@ export default function DashboardWithBackground() {
               - translateZ: 可以稍微向後一點，例如 -5px 到 0px
           */}
           <div className="w-full h-full bg-background rounded-md overflow-hidden shadow-xl [transform:rotateY(-10deg)_rotateX(-8deg)_translateZ(-3px)]">
-          {/* Laptop content - Quick Stats */}
-          <div className="p-2 h-full flex flex-col">
-            <h3 className="text-[8px] font-bold text-primary mb-1">Quick Stats</h3>
-            <div className="flex-1 flex flex-col justify-center gap-1">
-              <div className="bg-primary/10 rounded p-1.5">
-                <p className="text-[6px] text-muted-foreground">Focus Time</p>
-                <p className="text-[10px] font-bold text-foreground">25:00</p>
-              </div>
-              <div className="bg-secondary/10 rounded p-1.5">
-                <p className="text-[6px] text-muted-foreground">Tasks Done</p>
-                <p className="text-[10px] font-bold text-foreground">3/5</p>
-              </div>
-            </div>
-          </div>
+          {/* Laptop content - Pomodoro Timer */}
+          <PomodoroTimer compact={true} />
         </div>
         </div>
       </div>
