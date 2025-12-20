@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { usePusherContext } from "@/components/PusherProvider";
+import { getFocusUpdatesChannel, PUSHER_EVENTS } from "@/lib/pusher-constants";
+import type { FocusSessionStartedEvent, FocusSessionCompletedEvent } from "@/lib/pusher-types";
 
 interface Group {
   _id: string;
@@ -35,11 +40,33 @@ interface GroupMessage {
 
 interface TopMember {
   userId: string;
-  totalStudyTime: number;
+  totalStudyTime: number; // in seconds
   pomodoroCount: number;
   user?: {
     name: string;
     image?: string;
+  };
+}
+
+interface MemberWithStats {
+  userId: string;
+  totalStudyTime: number; // in seconds
+  pomodoroCount: number;
+  user?: {
+    name: string;
+    image?: string;
+  };
+}
+
+interface FocusingMember {
+  userId: string;
+  name: string;
+  image?: string;
+  focusSession: {
+    startedAt?: string;
+    targetDuration?: number;
+    sessionType?: string;
+    elapsedMinutes: number;
   };
 }
 
@@ -49,41 +76,149 @@ export default function OverviewTab({
   membership,
   isMember,
 }: OverviewTabProps) {
-  const [todayStudyTime, setTodayStudyTime] = useState(0);
+  const router = useRouter();
+  const { data: session } = useSession();
   const [topMembers, setTopMembers] = useState<TopMember[]>([]);
+  const [allMembers, setAllMembers] = useState<MemberWithStats[]>([]);
   const [recentMessages, setRecentMessages] = useState<GroupMessage[]>([]);
+  const [focusingMembers, setFocusingMembers] = useState<FocusingMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const { pusher, isConnected } = usePusherContext();
+
+  // Update current time every second for live elapsed time
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000); // Update every second
+
+    return () => clearInterval(timeInterval);
+  }, []);
 
   useEffect(() => {
     if (isMember) {
       fetchOverviewData();
+      
+      // Fallback polling - slower now since Pusher handles real-time updates
+      // Poll focus status every 30 seconds (was 5s)
+      const focusInterval = setInterval(() => {
+        fetch(`/api/groups/${groupId}/focus-status`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.focusingMembers) {
+              setFocusingMembers(data.focusingMembers);
+            }
+          })
+          .catch(err => console.error('Error polling focus status:', err));
+      }, 30000); // 30 seconds - fallback only
+
+      // Poll rankings every 60 seconds (was 10s) - fallback for data consistency
+      const rankingInterval = setInterval(() => {
+        console.log('[OverviewTab] Fallback polling sync');
+        fetch(`/api/groups/${groupId}/ranking?period=today`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.rankings) {
+              setAllMembers(data.rankings);
+              setTopMembers(data.rankings.slice(0, 3));
+            }
+          })
+          .catch(err => console.error('Error polling rankings:', err));
+      }, 60000); // 1 minute - fallback only
+
+      return () => {
+        clearInterval(focusInterval);
+        clearInterval(rankingInterval);
+      };
     }
   }, [groupId, isMember]);
+  
+  // Pusher real-time updates
+  useEffect(() => {
+    if (!pusher || !isConnected || !isMember) return;
+    
+    console.log('[OverviewTab] Subscribing to Pusher focus updates');
+    const channelName = getFocusUpdatesChannel();
+    const channel = pusher.subscribe(channelName);
+    
+    // Helper to refresh rankings
+    const refreshRankings = () => {
+      fetch(`/api/groups/${groupId}/ranking?period=today`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.rankings) {
+            setAllMembers(data.rankings);
+            setTopMembers(data.rankings.slice(0, 3));
+          }
+        })
+        .catch(err => console.error('Error refreshing rankings:', err));
+    };
+    
+    // Helper to refresh focus status
+    const refreshFocusStatus = () => {
+      fetch(`/api/groups/${groupId}/focus-status`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.focusingMembers) {
+            setFocusingMembers(data.focusingMembers);
+          }
+        })
+        .catch(err => console.error('Error refreshing focus status:', err));
+    };
+    
+    // Listen for focus session started
+    channel.bind(PUSHER_EVENTS.FOCUS_SESSION_STARTED, (data: FocusSessionStartedEvent) => {
+      console.log('[OverviewTab] 📡 Pusher: Focus session started', data.userId);
+      refreshFocusStatus(); // Update who's currently studying
+    });
+    
+    // Listen for focus session completed
+    channel.bind(PUSHER_EVENTS.FOCUS_SESSION_COMPLETED, (data: FocusSessionCompletedEvent) => {
+      console.log('[OverviewTab] 📡 Pusher: Focus session completed', data.userId, data.studyTime, 'minutes');
+      // Check if this user is in our group
+      const isInGroup = allMembers.some(m => m.userId === data.userId);
+      if (isInGroup) {
+        console.log('[OverviewTab] User is in group, refreshing stats immediately');
+        refreshRankings(); // Update rankings with new stats
+      }
+      refreshFocusStatus(); // Update focus status
+    });
+    
+    return () => {
+      console.log('[OverviewTab] Unsubscribing from Pusher');
+      channel.unbind_all();
+      pusher.unsubscribe(channelName);
+    };
+  }, [pusher, isConnected, isMember, groupId, allMembers]);
 
   const fetchOverviewData = async () => {
     try {
       setLoading(true);
       
-      // Fetch recent messages
-      const messagesResponse = await fetch(`/api/groups/${groupId}/messages?limit=5`);
+      // Fetch recent messages, rankings, and focus status in parallel
+      const [messagesResponse, rankingResponse, focusResponse] = await Promise.all([
+        fetch(`/api/groups/${groupId}/messages?limit=5`),
+        fetch(`/api/groups/${groupId}/ranking?period=today`),
+        fetch(`/api/groups/${groupId}/focus-status`),
+      ]);
+
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
         setRecentMessages(messagesData.messages || []);
       }
 
-      // Fetch ranking data for today (to get top members and total study time)
-      const rankingResponse = await fetch(`/api/groups/${groupId}/ranking?period=today`);
       if (rankingResponse.ok) {
         const rankingData = await rankingResponse.json();
         if (rankingData.rankings) {
+          setAllMembers(rankingData.rankings);
           setTopMembers(rankingData.rankings.slice(0, 3));
-          // Calculate total study time
-          const total = rankingData.rankings.reduce(
-            (sum: number, member: TopMember) => sum + (member.totalStudyTime || 0),
-            0
-          );
-          setTodayStudyTime(total);
         }
+      }
+
+      if (focusResponse.ok) {
+        const focusData = await focusResponse.json();
+        console.log('Initial focus status:', focusData); // Debug log
+        setFocusingMembers(focusData.focusingMembers || []);
       }
     } catch (error) {
       console.error("Error fetching overview data:", error);
@@ -92,13 +227,31 @@ export default function OverviewTab({
     }
   };
 
-  const formatTime = (minutes: number) => {
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
       return `${hours}h ${mins}m`;
     }
     return `${mins}m`;
+  };
+
+  const formatTimeHMS = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = Math.floor(totalSeconds % 60);
+    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleUserCardClick = (userId: string) => {
+    // If clicking own card, navigate to /profile directly
+    if (session?.user?.userId === userId) {
+      router.push('/profile');
+    } else {
+      // Otherwise, navigate to the other user's profile
+      router.push(`/profile/${userId}`);
+    }
   };
 
   if (!isMember) {
@@ -119,53 +272,6 @@ export default function OverviewTab({
 
   return (
     <div className="space-y-6">
-      {/* Today's Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Total Study Time */}
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold">Today's Study Time</h3>
-            <svg
-              className="w-8 h-8 opacity-80"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <p className="text-3xl font-bold">{formatTime(todayStudyTime)}</p>
-          <p className="text-sm opacity-90 mt-1">Total for all members</p>
-        </div>
-
-        {/* Member Count */}
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold">Members</h3>
-            <svg
-              className="w-8 h-8 opacity-80"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          </div>
-          <p className="text-3xl font-bold">{group.memberCount}</p>
-          <p className="text-sm opacity-90 mt-1">Active members</p>
-        </div>
-      </div>
-
       {/* Top 3 Members */}
       {topMembers.length > 0 && (
         <div>
@@ -173,55 +279,157 @@ export default function OverviewTab({
             Top 3 Today 🏆
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topMembers.map((member, index) => (
-              <div
-                key={member.userId}
-                className={`bg-white dark:bg-gray-700 rounded-lg p-4 border-2 ${
-                  index === 0
-                    ? "border-yellow-400 dark:border-yellow-500"
-                    : index === 1
-                    ? "border-gray-300 dark:border-gray-600"
-                    : index === 2
-                    ? "border-orange-300 dark:border-orange-600"
-                    : "border-gray-200 dark:border-gray-600"
-                }`}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="relative">
-                    {member.user?.image ? (
-                      <img
-                        src={member.user.image}
-                        alt={member.user.name || "User"}
-                        className="w-10 h-10 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                        <span className="text-gray-600 dark:text-gray-300 font-semibold">
-                          {member.user?.name?.[0]?.toUpperCase() || "?"}
-                        </span>
+            {topMembers.map((member, index) => {
+              const isFocusing = focusingMembers.some(fm => fm.userId === member.userId);
+              
+              return (
+                <div
+                  key={member.userId}
+                  onClick={() => handleUserCardClick(member.userId)}
+                  className={`bg-white dark:bg-gray-700 rounded-lg p-4 border-2 cursor-pointer hover:shadow-lg transition-shadow ${
+                    index === 0
+                      ? "border-yellow-400 dark:border-yellow-500 hover:border-yellow-500"
+                      : index === 1
+                      ? "border-gray-300 dark:border-gray-600 hover:border-gray-400"
+                      : index === 2
+                      ? "border-orange-300 dark:border-orange-600 hover:border-orange-400"
+                      : "border-gray-200 dark:border-gray-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="relative">
+                      {member.user?.image ? (
+                        <img
+                          src={member.user.image}
+                          alt={member.user.name || "User"}
+                          className="w-10 h-10 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                          <span className="text-gray-600 dark:text-gray-300 font-semibold">
+                            {member.user?.name?.[0]?.toUpperCase() || "?"}
+                          </span>
+                        </div>
+                      )}
+                      {index === 0 && (
+                        <span className="absolute -top-1 -right-1 text-lg">🥇</span>
+                      )}
+                      {index === 1 && (
+                        <span className="absolute -top-1 -right-1 text-lg">🥈</span>
+                      )}
+                      {index === 2 && (
+                        <span className="absolute -top-1 -right-1 text-lg">🥉</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-900 dark:text-white truncate">
+                          {member.user?.name || "Unknown"}
+                        </p>
+                        {isFocusing && (
+                          <span className="text-sm">🔥</span>
+                        )}
                       </div>
-                    )}
-                    {index === 0 && (
-                      <span className="absolute -top-1 -right-1 text-lg">🥇</span>
-                    )}
-                    {index === 1 && (
-                      <span className="absolute -top-1 -right-1 text-lg">🥈</span>
-                    )}
-                    {index === 2 && (
-                      <span className="absolute -top-1 -right-1 text-lg">🥉</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-white truncate">
-                      {member.user?.name || "Unknown"}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatTime(member.totalStudyTime || 0)}
-                    </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {formatTime(member.totalStudyTime || 0)}
+                      </p>
+                      {isFocusing && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                          Studying now
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Member Status Section - Shows all members with their today's focus time */}
+      {allMembers.length > 0 && (
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <span>Currently Studying</span>
+            <span className="text-orange-500 font-bold">{focusingMembers.length} {focusingMembers.length === 1 ? 'person' : 'people'}</span>
+          </h3>
+          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3">
+            {allMembers.map((member) => {
+              // Check if member is currently studying
+              const focusingData = focusingMembers.find(fm => fm.userId === member.userId);
+              const isStudying = !!focusingData;
+              
+              // Calculate display time
+              let displayTime = '';
+              if (isStudying && focusingData?.focusSession.startedAt) {
+                // Current session elapsed time
+                const elapsedMs = currentTime - new Date(focusingData.focusSession.startedAt).getTime();
+                const currentSessionSeconds = Math.floor(elapsedMs / 1000);
+                
+                // Previous accumulated time (today's total before this session)
+                const previousAccumulatedSeconds = member.totalStudyTime || 0;
+                
+                // Show accumulated + current session (counts up from previous total)
+                const totalSeconds = previousAccumulatedSeconds + currentSessionSeconds;
+                displayTime = formatTimeHMS(totalSeconds);
+              } else {
+                // Show today's total focus time (already in seconds)
+                displayTime = formatTimeHMS(member.totalStudyTime || 0);
+              }
+
+              return (
+                <div
+                  key={member.userId}
+                  onClick={() => handleUserCardClick(member.userId)}
+                  className={`bg-white dark:bg-gray-800 rounded-lg p-3 flex flex-col items-center text-center transition-all border cursor-pointer hover:shadow-md ${
+                    isStudying 
+                      ? 'border-orange-500 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500'
+                  }`}
+                >
+                  {/* Avatar or Icon */}
+                  <div className="relative mb-2">
+                    {member.user?.image ? (
+                      <div className={`relative ${isStudying ? 'ring-2 ring-orange-500' : ''} rounded-full`}>
+                        <img
+                          src={member.user.image}
+                          alt={member.user.name || 'User'}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        {isStudying && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-semibold ${
+                        isStudying 
+                          ? 'bg-orange-500 text-white ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-gray-800' 
+                          : 'bg-gradient-to-br from-blue-400 to-purple-500 text-white'
+                      }`}>
+                        {member.user?.name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <p className={`text-xs font-medium mb-1 truncate w-full ${
+                    isStudying ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {member.user?.name || 'Unknown'}
+                  </p>
+
+                  {/* Time Display */}
+                  <p className={`text-sm font-bold font-mono ${
+                    isStudying ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-500'
+                  }`}>
+                    {displayTime}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -231,9 +439,9 @@ export default function OverviewTab({
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           Recent Activity
         </h3>
-        {recentMessages.length > 0 ? (
+        {recentMessages.filter(msg => msg.messageType === 'system').length > 0 ? (
           <div className="space-y-3">
-            {recentMessages.map((message) => (
+            {recentMessages.filter(msg => msg.messageType === 'system').map((message) => (
               <div
                 key={message._id}
                 className={`bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 ${
@@ -285,16 +493,6 @@ export default function OverviewTab({
         )}
       </div>
 
-      {/* Upcoming Events Placeholder */}
-      <div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Upcoming Events
-        </h3>
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-          <p className="text-sm">Events feature coming soon</p>
-          <p className="text-xs mt-1">Will be integrated with calendar in Phase 7</p>
-        </div>
-      </div>
     </div>
   );
 }

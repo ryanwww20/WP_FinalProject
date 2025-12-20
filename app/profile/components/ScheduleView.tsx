@@ -1,13 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Course, CourseMeeting } from "@/models/User";
 import ScheduleGrid from "./ScheduleGrid";
 import CourseModal from "./CourseModal";
 import { useCourses } from "./hooks/useCourses";
 
-export default function ScheduleView() {
-  const { courses, isLoading, deleteCourse, saveCourse } = useCourses();
+interface ScheduleViewProps {
+  targetUserId?: string; // If provided, viewing another user's schedule
+  readOnly?: boolean; // If true, disable editing
+}
+
+export default function ScheduleView({ targetUserId, readOnly = false }: ScheduleViewProps) {
+  const { courses: myCourses, isLoading: myIsLoading, deleteCourse, saveCourse } = useCourses();
+  const [viewedCourses, setViewedCourses] = useState<Course[]>([]);
+  const [viewedLoading, setViewedLoading] = useState(false);
+
+  // Fetch other user's courses if viewing their profile
+  useEffect(() => {
+    if (targetUserId) {
+      const fetchUserCourses = async () => {
+        setViewedLoading(true);
+        try {
+          const response = await fetch(`/api/profile/${targetUserId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setViewedCourses(data.user.courses || []);
+          }
+        } catch (error) {
+          console.error("Error fetching user courses:", error);
+        } finally {
+          setViewedLoading(false);
+        }
+      };
+      fetchUserCourses();
+    }
+  }, [targetUserId]);
+
+  const courses = targetUserId ? viewedCourses : myCourses;
+  const isLoading = targetUserId ? viewedLoading : myIsLoading;
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
@@ -61,7 +92,7 @@ export default function ScheduleView() {
     if (meetings.length > 1) {
       setMeetings(meetings.filter((_, i) => i !== index));
     } else {
-      alert("至少需要一個上課時段");
+      alert("At least one meeting time is required");
     }
   };
 
@@ -77,7 +108,7 @@ export default function ScheduleView() {
     // Validate meetings
     for (const meeting of meetings) {
       if (meeting.timeSlots.length === 0) {
-        alert("請為每個上課時段選擇至少一個時間段");
+        alert("Please select at least one time slot for each meeting");
         return;
       }
     }
@@ -106,26 +137,29 @@ export default function ScheduleView() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-300 p-6">
+    <div className="bg-card rounded-xl shadow-sm border border-border p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-700">
-          課表
+        <h2 className="text-lg font-semibold text-foreground">
+          Course Schedule
         </h2>
-        <button
-          onClick={handleAddCourse}
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-        >
-          + 新增課程
-        </button>
+        {!readOnly && (
+          <button
+            onClick={handleAddCourse}
+            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors shadow-sm"
+          >
+            + Add Course
+          </button>
+        )}
       </div>
 
       {/* Schedule Grid */}
-      <ScheduleGrid
-        courses={courses}
-        onEditCourse={handleEditCourse}
-        onDeleteCourse={handleDeleteCourse}
-      />
+        <ScheduleGrid
+          courses={courses}
+          onEditCourse={readOnly ? undefined : handleEditCourse}
+          onDeleteCourse={readOnly ? undefined : handleDeleteCourse}
+          readOnly={readOnly}
+        />
 
       {/* Add/Edit Course Modal */}
       <CourseModal
@@ -142,8 +176,8 @@ export default function ScheduleView() {
       />
 
       {isLoading && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          載入中...
+        <div className="text-center py-8 text-muted-foreground">
+          Loading...
         </div>
       )}
     </div>

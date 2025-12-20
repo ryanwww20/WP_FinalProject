@@ -21,7 +21,7 @@ export default async function ProfilePage() {
 
   return (
     <StatusProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-[calc(100vh-4rem)] bg-muted/40 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Profile Header */}
           <ProfileHeader session={session} />

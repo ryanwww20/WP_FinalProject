@@ -29,7 +29,7 @@ export async function POST(
 
     const body = await request.json();
     
-    // Validate input (inviteCode is optional, password is optional)
+    // Validate input (password is optional)
     const validationResult = joinGroupSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(
       );
     }
 
-    const { inviteCode, password } = validationResult.data || {};
+    const { password } = validationResult.data || {};
 
     await connectDB();
 
@@ -57,15 +57,6 @@ export async function POST(
       return NextResponse.json(
         { error: 'Group not found' },
         { status: 404 }
-      );
-    }
-
-    // Invite code verification (optional - kept for future use but not required in UI)
-    // If invite code is provided, verify it matches (for future use)
-    if (inviteCode && group.inviteCode !== inviteCode.toUpperCase()) {
-      return NextResponse.json(
-        { error: 'Invalid invite code' },
-        { status: 400 }
       );
     }
 

@@ -11,10 +11,9 @@ interface Group {
   name: string;
   description?: string;
   coverImage?: string;
-  isPublic: boolean; // true if no password, false if has password
+  visibility: 'public' | 'private';
   hasPassword: boolean;
   memberCount: number;
-  inviteCode: string;
   createdAt: string;
   role?: "owner" | "admin" | "member";
 }
@@ -57,19 +56,14 @@ export default function GroupsClient() {
       return;
     }
 
-    // If group is public (no password), allow direct access
-    if (group.isPublic) {
-      router.push(`/groups/${group._id}`);
-      return;
-    }
-
-    // If group is private (has password), show password prompt
+    // If group has password (private), show password prompt to join
     if (group.hasPassword) {
       setPasswordModalGroup(group);
       return;
     }
 
-    // Default: try to access
+    // For public groups (no password), just navigate to group page
+    // User will see a "Join" button there to manually join
     router.push(`/groups/${group._id}`);
   };
 
@@ -85,7 +79,6 @@ export default function GroupsClient() {
         },
         body: JSON.stringify({
           password: password,
-          // No invite code needed - removed from UI
         }),
       });
 
@@ -112,34 +105,37 @@ export default function GroupsClient() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
-      <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+    <div className="min-h-[calc(100vh-4rem)] bg-muted/40 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Groups
-          </h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Create Group
-            </button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-primary">
+              Study Groups
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Join or create groups to study together
+            </p>
           </div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Create Group
+          </button>
         </div>
 
         {/* Search */}
@@ -147,7 +143,7 @@ export default function GroupsClient() {
           <div className="mb-6">
             <div className="relative">
               <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -164,7 +160,7 @@ export default function GroupsClient() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search groups..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground shadow-sm"
               />
             </div>
           </div>
@@ -172,14 +168,17 @@ export default function GroupsClient() {
 
         {/* Loading State */}
         {loading ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            Loading groups...
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading groups...</p>
+            </div>
           </div>
         ) : (
           <>
             {/* Groups Grid */}
             {filteredGroups.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredGroups.map((group) => (
                   <GroupCard
                     key={group._id}
@@ -189,26 +188,50 @@ export default function GroupsClient() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <div className="bg-card rounded-xl shadow-sm border border-border p-12 text-center">
                 {searchQuery ? (
                   <>
-                    <p className="text-lg mb-2">No groups found</p>
-                    <p className="text-sm">Try a different search term</p>
+                    <svg
+                      className="w-16 h-16 text-muted-foreground mx-auto mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <p className="text-lg font-semibold text-foreground mb-2">No groups found</p>
+                    <p className="text-sm text-muted-foreground">Try a different search term</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-lg mb-2">No groups yet</p>
-                    <p className="text-sm mb-4">
+                    <svg
+                      className="w-16 h-16 text-muted-foreground mx-auto mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                    <p className="text-lg font-semibold text-foreground mb-2">No groups yet</p>
+                    <p className="text-sm text-muted-foreground mb-6">
                       Create your first group or join an existing one!
                     </p>
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Create Group
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+                    >
+                      Create Group
+                    </button>
                   </>
                 )}
               </div>

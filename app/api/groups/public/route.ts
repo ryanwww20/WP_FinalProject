@@ -5,6 +5,9 @@ import connectDB from '@/lib/mongodb';
 import Group from '@/models/Group';
 import GroupMember from '@/models/GroupMember';
 
+// Force dynamic rendering since we use getServerSession
+export const dynamic = 'force-dynamic';
+
 // GET /api/groups/public - Get all groups (for browsing)
 // Returns all groups but marks which are public (no password) vs private (has password)
 export async function GET(request: NextRequest) {
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     // Get all groups
     const allGroups = await Group.find({})
-      .select('name description coverImage password memberCount createdAt inviteCode')
+      .select('name description coverImage password memberCount createdAt visibility')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     // Enrich groups with public/private status and user's role
     const enrichedGroups = allGroups.map((group: any) => {
-      const isPublic = !group.password || group.password.trim().length === 0;
+      const hasPassword = group.password && group.password.trim().length > 0;
       const userRole = membershipMap.get(group._id.toString());
 
       return {
@@ -46,10 +49,9 @@ export async function GET(request: NextRequest) {
         description: group.description,
         coverImage: group.coverImage,
         memberCount: group.memberCount,
-        inviteCode: group.inviteCode,
         createdAt: group.createdAt,
-        isPublic, // true if no password, false if has password
-        hasPassword: !isPublic,
+        visibility: group.visibility,
+        hasPassword, // true if group requires password to join
         role: userRole || undefined,
       };
     });

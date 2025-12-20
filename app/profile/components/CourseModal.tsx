@@ -39,15 +39,15 @@ export default function CourseModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-50 rounded-lg p-6 max-w-2xl w-full mx-4 border border-gray-200 dark:border-gray-300 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-700 mb-4">
-          {editingCourse ? "編輯課程" : "新增課程"}
+      <div className="bg-card rounded-xl shadow-xl p-6 max-w-2xl w-full mx-4 border border-border max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-semibold text-foreground mb-4">
+          {editingCourse ? "Edit Course" : "Add Course"}
         </h3>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-600 mb-1">
-              課程名稱 *
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Course Name *
             </label>
             <input
               type="text"
@@ -56,13 +56,13 @@ export default function CourseModal({
                 onFormDataChange({ name: e.target.value })
               }
               required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-600 mb-1">
-              授課教師
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Teacher
             </label>
             <input
               type="text"
@@ -70,13 +70,13 @@ export default function CourseModal({
               onChange={(e) =>
                 onFormDataChange({ teacher: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-700"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-600 mb-1">
-              顏色 *
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Color *
             </label>
             <div className="grid grid-cols-5 gap-2">
               {colorOptions.map((color) => (
@@ -86,8 +86,8 @@ export default function CourseModal({
                   onClick={() => onFormDataChange({ color: color.value })}
                   className={`h-10 rounded-lg border-2 ${
                     formData.color === color.value
-                      ? "border-gray-800 dark:border-gray-700"
-                      : "border-gray-300 dark:border-gray-400"
+                      ? "border-foreground ring-2 ring-primary/30"
+                      : "border-border"
                   } ${color.value}`}
                   title={color.label}
                 />
@@ -105,16 +105,16 @@ export default function CourseModal({
           <div className="flex gap-2 pt-4">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
             >
-              {editingCourse ? "更新" : "新增"}
+              {editingCourse ? "Update" : "Add"}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-300 text-gray-800 dark:text-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-400 transition-colors"
+              className="flex-1 px-4 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
             >
-              取消
+              Cancel
             </button>
           </div>
         </form>

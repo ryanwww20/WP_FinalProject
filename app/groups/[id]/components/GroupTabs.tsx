@@ -5,17 +5,16 @@ import OverviewTab from "./OverviewTab";
 import SettingsTab from "./SettingsTab";
 import ChatTab from "./ChatTab";
 import MapTab from "./MapTab";
+import RankingTab from "./RankingTab";
 import { useLoadScript } from "@react-google-maps/api";
-// Placeholder components for other tabs (will be implemented in later phases)
-// import RankingTab from "./RankingTab";
 
 interface Group {
   _id: string;
   name: string;
   description?: string;
   coverImage?: string;
+  visibility?: 'public' | 'private';
   memberCount: number;
-  inviteCode: string;
   hasPassword?: boolean; // true if group has password (private), false if no password (public)
   requireApproval: boolean; // whether group requires approval for new members
 }
@@ -105,10 +104,7 @@ export default function GroupTabs({
           <ChatTab groupId={groupId} isMember={isMember} />
         )}
         {activeTab === "ranking" && (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <p className="text-lg mb-2">Ranking feature coming soon</p>
-            <p className="text-sm">This will be implemented in Phase 5</p>
-          </div>
+          <RankingTab groupId={groupId} isMember={isMember} />
         )}
         {/* Map Tab - 始終渲染但隱藏，避免重複載入腳本 */}
         <div style={{ display: activeTab === "map" ? "block" : "none" }}>

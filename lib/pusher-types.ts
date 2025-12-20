@@ -36,10 +36,65 @@ export interface NewMessageEvent extends Message {
 }
 
 /**
+ * Focus session statistics
+ */
+export interface FocusSessionStats {
+  totalStudyTime: number;      // Total seconds (all-time)
+  todayStats: {
+    date: string;               // 'YYYY-MM-DD'
+    seconds: number;
+  };
+  weeklyStats: {
+    weekStart: string;          // 'YYYY-MM-DD'
+    totalSeconds: number;
+  };
+  monthlyStats: {
+    month: number;              // 1-12
+    year: number;
+    seconds: number;
+  };
+}
+
+/**
+ * Event payload for 'focus-session-started' event
+ */
+export interface FocusSessionStartedEvent {
+  userId: string;
+  startedAt: string;            // ISO timestamp
+  targetDuration?: number;      // Minutes
+  timestamp: number;            // Unix timestamp
+}
+
+/**
+ * Event payload for 'focus-session-completed' event
+ */
+export interface FocusSessionCompletedEvent {
+  userId: string;
+  studyTime: number;            // Minutes
+  studyTimeSeconds: number;     // Seconds
+  stats: FocusSessionStats;     // Updated stats after session
+  timestamp: number;            // Unix timestamp
+}
+
+/**
+ * Event payload for 'focus-session-stats-updated' event
+ * (For any other stats updates)
+ */
+export interface FocusSessionStatsUpdatedEvent {
+  userId: string;
+  stats: FocusSessionStats;
+  timestamp: number;
+}
+
+/**
  * Union type for all Pusher event payloads
  * Add new event types here as they're implemented
  */
-export type PusherEventPayload = NewMessageEvent;
+export type PusherEventPayload = 
+  | NewMessageEvent
+  | FocusSessionStartedEvent
+  | FocusSessionCompletedEvent
+  | FocusSessionStatsUpdatedEvent;
 // Future events:
 // | MemberJoinedEvent
 // | MemberLeftEvent

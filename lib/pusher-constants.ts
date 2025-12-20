@@ -60,6 +60,12 @@ export function getGroupChannel(groupId: string): string {
 export const PUSHER_EVENTS = {
   /** New message event - fired when a new message is sent to a group */
   NEW_MESSAGE: 'new-message',
+  
+  /** Focus session events - for real-time study tracking */
+  FOCUS_SESSION_STARTED: 'focus-session-started',
+  FOCUS_SESSION_COMPLETED: 'focus-session-completed',
+  FOCUS_SESSION_STATS_UPDATED: 'focus-session-stats-updated',
+  
   // Future events can be added here:
   // MEMBER_JOINED: 'member-joined',
   // MEMBER_LEFT: 'member-left',
@@ -70,4 +76,18 @@ export const PUSHER_EVENTS = {
  * Type for Pusher event names
  */
 export type PusherEventName = typeof PUSHER_EVENTS[keyof typeof PUSHER_EVENTS];
+
+/**
+ * Global channel for focus session updates
+ * All users subscribe to this to see when anyone completes a focus session
+ */
+export const FOCUS_UPDATES_CHANNEL = 'focus-updates';
+
+/**
+ * Get the channel name for focus updates
+ * This is a global channel that all users can subscribe to
+ */
+export function getFocusUpdatesChannel(): string {
+  return FOCUS_UPDATES_CHANNEL;
+}
 

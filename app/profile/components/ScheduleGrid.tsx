@@ -5,8 +5,9 @@ import { TIME_SLOT_DEFINITIONS, DAYS_OF_WEEK } from "@/lib/constants";
 
 interface ScheduleGridProps {
   courses: Course[];
-  onEditCourse: (course: Course) => void;
-  onDeleteCourse: (courseId: string | undefined, e?: React.MouseEvent) => void;
+  onEditCourse?: (course: Course) => void;
+  onDeleteCourse?: (courseId: string | undefined, e?: React.MouseEvent) => void;
+  readOnly?: boolean;
 }
 
 /**
@@ -57,6 +58,7 @@ export default function ScheduleGrid({
   courses,
   onEditCourse,
   onDeleteCourse,
+  readOnly = false,
 }: ScheduleGridProps) {
   const timeSlots = TIME_SLOT_DEFINITIONS;
   const daysOfWeek = DAYS_OF_WEEK;
@@ -65,19 +67,19 @@ export default function ScheduleGrid({
     <div className="overflow-x-auto">
       <div className="min-w-[800px]">
         {/* Days Header */}
-        <div className="grid grid-cols-7 border-b border-gray-300 dark:border-gray-400">
-          <div className="p-3 text-sm font-medium text-gray-600 dark:text-gray-700 border-r border-gray-200 dark:border-gray-300">
-            時間
+        <div className="grid grid-cols-7 border-b border-border">
+          <div className="p-3 text-sm font-medium text-muted-foreground border-r border-border">
+            Time
           </div>
           {daysOfWeek.map((day, index) => {
             const actualDayOfWeek = index + 1;
             return (
               <div
                 key={index}
-                className={`p-3 text-center text-sm font-medium border-l border-gray-300 dark:border-gray-400 ${
+                className={`p-3 text-center text-sm font-medium border-l border-border ${
                   actualDayOfWeek === new Date().getDay()
-                    ? "bg-blue-50 dark:bg-blue-100 text-blue-700 dark:text-blue-800"
-                    : "text-gray-700 dark:text-gray-800"
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground"
                 }`}
               >
                 {day}
@@ -91,18 +93,18 @@ export default function ScheduleGrid({
           {timeSlots.map((slot) => (
             <div
               key={slot.index}
-              className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-300"
+              className="grid grid-cols-7 border-b border-border"
               style={{ minHeight: "60px" }}
             >
               {/* Time Label */}
-              <div className="p-2 text-xs border-r border-gray-200 dark:border-gray-300 flex flex-col justify-center items-center bg-gray-50 dark:bg-gray-100">
-                <div className="text-gray-400 dark:text-gray-500 text-[10px]">
+              <div className="p-2 text-xs border-r border-border flex flex-col justify-center items-center bg-muted/50">
+                <div className="text-muted-foreground text-[10px]">
                   {slot.start}
                 </div>
-                <div className="text-black dark:text-gray-900 font-bold text-base my-1">
+                <div className="text-foreground font-bold text-base my-1">
                   {slot.index}
                 </div>
-                <div className="text-gray-400 dark:text-gray-500 text-[10px]">
+                <div className="text-muted-foreground text-[10px]">
                   {slot.end}
                 </div>
               </div>
@@ -118,43 +120,44 @@ export default function ScheduleGrid({
                 return (
                   <div
                     key={dayIndex}
-                    className="relative border-l border-gray-200 dark:border-gray-300 p-1"
+                    className="relative border-l border-border p-1"
                   >
                     {course && slotPosition && (
                       <div
-                        className={`${course.color} text-white rounded px-2 py-1 text-xs shadow-sm cursor-pointer hover:shadow-md transition-shadow flex items-center gap-1.5 h-full group relative`}
+                        className={`${course.color} text-white rounded px-2 py-1 text-xs shadow-sm ${!readOnly ? 'cursor-pointer hover:shadow-md' : ''} transition-shadow flex items-center gap-1.5 h-full group relative`}
                         title={`${course.name}\n${
-                          course.teacher ? `教師: ${course.teacher}\n` : ""
+                          course.teacher ? `Teacher: ${course.teacher}\n` : ""
                         }${
                           course.meetings.find(
                             (m) => m.dayOfWeek === actualDayOfWeek
                           )?.location || ""
                         }`}
-                        onClick={(e) => {
+                        onClick={!readOnly ? (e) => {
                           // Only trigger edit if clicking on the card itself, not on buttons
                           if (
                             (e.target as HTMLElement).tagName !== "BUTTON" &&
                             !(e.target as HTMLElement).closest("button")
                           ) {
-                            onEditCourse(course);
+                            onEditCourse?.(course);
                           }
-                        }}
+                        } : undefined}
                       >
                         <span className="font-medium truncate flex-1">
                           {course.name}
                         </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDeleteCourse(course.id, e);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0 z-10 relative"
-                          title="刪除課程"
-                          type="button"
-                        >
-                          <svg
-                            className="w-3 h-3"
+                        {!readOnly && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onDeleteCourse?.(course.id, e);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0 z-10 relative"
+                            title="Delete Course"
+                            type="button"
+                          >
+                            <svg
+                              className="w-3 h-3"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                           >
@@ -163,8 +166,9 @@ export default function ScheduleGrid({
                               d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
                               clipRule="evenodd"
                             />
-                          </svg>
-                        </button>
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
