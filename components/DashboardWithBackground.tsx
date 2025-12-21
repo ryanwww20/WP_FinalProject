@@ -156,7 +156,7 @@ export default function DashboardWithBackground() {
             - rotateX: 筆電通常向上傾斜 (負值)，例如 -5deg 到 -10deg
             - translateZ: 可以稍微向後一點，例如 -5px 到 0px
         */}
-        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateZ(3deg)_rotateY(-5deg)_rotateX(-2deg)_skewY(-2deg)]">
+        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateZ(4deg)_rotateY(-5deg)_rotateX(-1deg)_skewY(-3deg)]">
           {/* Laptop Screen Container */}
           <div className="w-full h-full bg-background rounded-md overflow-y-auto overflow-x-hidden shadow-xl">
             {/* Laptop content - Pomodoro Timer */}
