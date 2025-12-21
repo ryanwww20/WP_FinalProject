@@ -102,7 +102,7 @@ export default function DashboardWithBackground() {
         }}
       >
         {/* 3D Transform 容器 - preserve-3d 讓子元素保持 3D 空間 */}
-        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateY(-13deg)_rotateX(0.5deg)_skewY(-2.5deg)]">
+        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateZ(0.7deg)_rotateY(-14deg)_rotateX(-1deg)_skewY(-3deg)]">
           {/* Monitor Screen - Dashboard Container */}
           {/* 3D Transform: rotateY(左右傾斜) rotateX(上下傾斜) translateZ(前後移動) */}
           {/* 調整方式：
