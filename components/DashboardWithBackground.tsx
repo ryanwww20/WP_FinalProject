@@ -146,7 +146,7 @@ export default function DashboardWithBackground() {
           // 位置調整：修改這些值來移動整個筆電區域
           top: "24%",    // 距離頂部的距離
           left: "6%",    // 距離左側的距離
-          width: "21.5%",  // 寬度（調整這個來改變寬度）
+          width: "22.5%",  // 寬度（調整這個來改變寬度）
           height: "25%", // 高度（調整這個來改變高度）
         }}
       >
@@ -156,7 +156,7 @@ export default function DashboardWithBackground() {
             - rotateX: 筆電通常向上傾斜 (負值)，例如 -5deg 到 -10deg
             - translateZ: 可以稍微向後一點，例如 -5px 到 0px
         */}
-        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateZ(4deg)_rotateY(-5deg)_rotateX(-1deg)_skewY(-3deg)]">
+        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateZ(3deg)_rotateY(0deg)_rotateX(-0deg)_skewY(-1deg)]">
           {/* Laptop Screen Container */}
           <div className="w-full h-full bg-background rounded-md overflow-y-auto overflow-x-hidden shadow-xl">
             {/* Laptop content - Pomodoro Timer */}

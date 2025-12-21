@@ -85,48 +85,46 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
         
         {/* Timer Display - 所有控件 */}
         <div className="w-full flex flex-col items-center justify-center mb-1.5 flex-shrink-0">
-          {/* 时间显示 */}
-          <div className="flex flex-col items-center mb-1.5">
-            <span className="text-[14px] font-bold text-foreground tabular-nums">
-              {formatTime(timeLeft)}
-            </span>
-            <span className="text-[5px] text-muted-foreground mt-0.5 capitalize">
-              {timerMode === "work" ? "Focus" : timerMode === "shortBreak" ? "Break" : "Long Break"}
-            </span>
-          </div>
 
           {/* Mode Selector */}
-          <div className="flex gap-0.5 mb-1.5 w-full max-w-[80%]">
+          <div className="flex gap-0.5 mb-1.5 w-full mt-4 max-w-[80%]">
             <button
               onClick={() => switchMode("work")}
-              className={`flex-1 px-0.5 py-0.5 rounded text-[5px] font-medium transition-colors ${
+              className={`flex-1 px-0.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
                 timerMode === "work"
                   ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  : "bg-transparent text-muted-foreground hover:bg-muted/80"
               }`}
             >
               Focus
             </button>
             <button
               onClick={() => switchMode("shortBreak")}
-              className={`flex-1 px-0.5 py-0.5 rounded text-[5px] font-medium transition-colors ${
+              className={`flex-1 px-0.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
                 timerMode === "shortBreak"
                   ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  : "bg-transparent text-muted-foreground hover:bg-muted/80"
               }`}
             >
               Short
             </button>
             <button
               onClick={() => switchMode("longBreak")}
-              className={`flex-1 px-0.5 py-0.5 rounded text-[5px] font-medium transition-colors ${
+              className={`flex-1 px-0.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
                 timerMode === "longBreak"
                   ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  : "bg-transparent text-muted-foreground hover:bg-muted/80"
               }`}
             >
               Long
             </button>
+          </div>
+
+          {/* 时间显示 */}
+          <div className="flex flex-col items-center mb-1.5">
+            <span className="text-[70px] font-bold text-foreground tabular-nums">
+              {formatTime(timeLeft)}
+            </span>
           </div>
 
           {/* Controls */}
@@ -148,24 +146,6 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
               Reset
             </button>
           </div>
-        </div>
-
-        {/* Completed Pomodoros - 紧凑版 */}
-        <div className="flex items-center justify-center gap-1 mt-auto pt-1 flex-shrink-0">
-          <span className="text-[5px] text-muted-foreground">Done:</span>
-          <div className="flex gap-0.5">
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className={`w-1 h-1 rounded-full transition-colors duration-300 ${
-                  i < completedPomodoros % 4
-                    ? "bg-primary"
-                    : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
-          <span className="text-[6px] font-medium text-foreground ml-0.5">{completedPomodoros}</span>
         </div>
       </div>
     );
