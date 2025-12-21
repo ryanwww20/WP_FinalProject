@@ -80,11 +80,11 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
   if (compact) {
     // 紧凑模式 - 用于 Laptop 屏幕
     return (
-      <div className="h-full flex flex-col p-2">
-        <h3 className="text-[8px] font-bold text-primary mb-1">Pomodoro Timer</h3>
+      <div className="h-full flex flex-col p-2 min-h-0">
+        <h3 className="text-[8px] font-bold text-primary mb-1 flex-shrink-0">Pomodoro Timer</h3>
         
         {/* Timer Display - 小型圆形进度条 */}
-        <div className="relative w-full aspect-square mb-2 flex-shrink-0">
+        <div className="relative w-full max-w-[55%] mx-auto mb-1.5 flex-shrink-0" style={{ aspectRatio: '1 / 1' }}>
           <svg className="w-full h-full transform -rotate-90">
             <circle
               cx="50%"
@@ -111,20 +111,20 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[14px] font-bold text-foreground tabular-nums">
+            <span className="text-[12px] font-bold text-foreground tabular-nums">
               {formatTime(timeLeft)}
             </span>
-            <span className="text-[6px] text-muted-foreground mt-0.5 capitalize">
+            <span className="text-[5px] text-muted-foreground mt-0.5 capitalize">
               {timerMode === "work" ? "Focus" : timerMode === "shortBreak" ? "Break" : "Long Break"}
             </span>
           </div>
         </div>
 
         {/* Mode Selector - 紧凑版 */}
-        <div className="flex gap-1 mb-2 flex-shrink-0">
+        <div className="flex gap-0.5 mb-1.5 flex-shrink-0">
           <button
             onClick={() => switchMode("work")}
-            className={`flex-1 px-1 py-0.5 rounded text-[6px] font-medium transition-colors ${
+            className={`flex-1 px-0.5 py-0.5 rounded text-[5px] font-medium transition-colors ${
               timerMode === "work"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -134,7 +134,7 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
           </button>
           <button
             onClick={() => switchMode("shortBreak")}
-            className={`flex-1 px-1 py-0.5 rounded text-[6px] font-medium transition-colors ${
+            className={`flex-1 px-0.5 py-0.5 rounded text-[5px] font-medium transition-colors ${
               timerMode === "shortBreak"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -144,7 +144,7 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
           </button>
           <button
             onClick={() => switchMode("longBreak")}
-            className={`flex-1 px-1 py-0.5 rounded text-[6px] font-medium transition-colors ${
+            className={`flex-1 px-0.5 py-0.5 rounded text-[5px] font-medium transition-colors ${
               timerMode === "longBreak"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -155,10 +155,10 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
         </div>
 
         {/* Controls - 紧凑版 */}
-        <div className="flex gap-1 mb-2 flex-shrink-0">
+        <div className="flex gap-1 mb-1.5 flex-shrink-0">
           <button
             onClick={toggleTimer}
-            className={`flex-1 px-2 py-1 rounded text-[7px] font-semibold transition-all ${
+            className={`flex-1 px-1.5 py-1 rounded text-[6px] font-semibold transition-all ${
               isRunning
                 ? "bg-orange-500 hover:bg-orange-600 text-white"
                 : "bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -168,20 +168,20 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
           </button>
           <button
             onClick={resetTimer}
-            className="flex-1 px-2 py-1 rounded text-[7px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+            className="flex-1 px-1.5 py-1 rounded text-[6px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
           >
             Reset
           </button>
         </div>
 
         {/* Completed Pomodoros - 紧凑版 */}
-        <div className="mt-auto flex items-center justify-center gap-1">
-          <span className="text-[6px] text-muted-foreground">Done:</span>
+        <div className="flex items-center justify-center gap-1 mt-auto pt-1 flex-shrink-0">
+          <span className="text-[5px] text-muted-foreground">Done:</span>
           <div className="flex gap-0.5">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+                className={`w-1 h-1 rounded-full transition-colors duration-300 ${
                   i < completedPomodoros % 4
                     ? "bg-primary"
                     : "bg-muted"
@@ -189,7 +189,7 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
               />
             ))}
           </div>
-          <span className="text-[7px] font-medium text-foreground ml-1">{completedPomodoros}</span>
+          <span className="text-[6px] font-medium text-foreground ml-0.5">{completedPomodoros}</span>
         </div>
       </div>
     );

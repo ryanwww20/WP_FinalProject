@@ -144,24 +144,25 @@ export default function DashboardWithBackground() {
         className="absolute z-10 [perspective:1000px]"
         style={{
           // 位置調整：修改這些值來移動整個筆電區域
-          top: "18%",    // 距離頂部的距離
-          left: "2%",    // 距離左側的距離
-          width: "18%",  // 寬度（調整這個來改變寬度）
-          height: "32%", // 高度（調整這個來改變高度）
+          top: "24%",    // 距離頂部的距離
+          left: "6%",    // 距離左側的距離
+          width: "21.5%",  // 寬度（調整這個來改變寬度）
+          height: "25%", // 高度（調整這個來改變高度）
         }}
       >
-        {/* 3D Transform 容器 */}
-        <div className="w-full h-full [transform-style:preserve-3d]">
+        {/* 3D Transform 容器 - preserve-3d 讓子元素保持 3D 空間 */}
+        {/* 3D Transform 調整說明：
+            - rotateY: 筆電通常需要向左傾斜 (負值)，例如 -8deg 到 -12deg
+            - rotateX: 筆電通常向上傾斜 (負值)，例如 -5deg 到 -10deg
+            - translateZ: 可以稍微向後一點，例如 -5px 到 0px
+        */}
+        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateZ(3deg)_rotateY(-5deg)_rotateX(-2deg)_skewY(-2deg)]">
           {/* Laptop Screen Container */}
-          {/* 3D Transform 調整說明：
-              - rotateY: 筆電通常需要向左傾斜 (負值)，例如 -8deg 到 -12deg
-              - rotateX: 筆電通常向上傾斜 (負值)，例如 -5deg 到 -10deg
-              - translateZ: 可以稍微向後一點，例如 -5px 到 0px
-          */}
-          <div className="w-full h-full bg-background rounded-md overflow-hidden shadow-xl [transform:rotateY(-10deg)_rotateX(-8deg)_translateZ(-3px)]">
-          {/* Laptop content - Pomodoro Timer */}
-          <PomodoroTimer compact={true} />
-        </div>
+          <div className="w-full h-full bg-background rounded-md overflow-y-auto overflow-x-hidden shadow-xl">
+            {/* Laptop content - Pomodoro Timer */}
+            {/* 所有 PomodoroTimer 的內容都會被 3D Transform 容器控制 */}
+            <PomodoroTimer compact={true} />
+          </div>
         </div>
       </div>
 
