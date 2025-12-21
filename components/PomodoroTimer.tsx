@@ -128,22 +128,17 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
           </div>
 
           {/* Controls */}
-          <div className="flex gap-1 w-full max-w-[80%]">
+          <div className="relative flex justify-center w-full">
+            <div className="w-24 h-9 mt-2 rounded-lg bg-[#e3e2e2] top-0 left-0 right-0 bottom-0"></div>
             <button
               onClick={toggleTimer}
-              className={`flex-1 px-1 py-0.5 rounded text-[6px] font-semibold transition-all ${
+              className={`w-24 h-10 rounded-lg flex items-center justify-center absolute text-[16px] font-bold transition-all] ${
                 isRunning
-                  ? "bg-orange-500 hover:bg-orange-600 text-white"
+                  ? "bg-orange-500 hover:bg-orange-600 text-white mt-1"
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"
               }`}
             >
               {isRunning ? "Pause" : "Start"}
-            </button>
-            <button
-              onClick={resetTimer}
-              className="flex-1 px-1 py-0.5 rounded text-[6px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
-            >
-              Reset
             </button>
           </div>
         </div>
