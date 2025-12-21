@@ -43,7 +43,15 @@ export default function DashboardWithBackground() {
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="relative w-full aspect-[2746/1672] max-h-full max-w-full">
 
-      {/* Clickable Lamp Area */}
+      {/* Clickable Lamp Area - 可點擊的檯燈區域 */}
+      {/* 
+        調整說明：
+        - 位置：修改 top, right, left, bottom (相對於父容器的百分比)
+        - 大小：修改 width, height (相對於父容器的百分比)
+        - 旋轉：在 style 中添加 transform: "rotate(角度deg)"
+          例如：transform: "rotate(15deg)" 順時針旋轉 15 度
+                transform: "rotate(-10deg)" 逆時針旋轉 10 度
+      */}
       {mounted && (
         <button
           onClick={handleLampClick}
@@ -51,41 +59,55 @@ export default function DashboardWithBackground() {
           onMouseLeave={() => setIsLampHovered(false)}
           className="absolute z-30 cursor-pointer transition-all duration-300"
           style={{
-            top: "2%",
-            right: "3%",
-            width: "10%",
-            height: "30%",
+            // 位置調整：相對於父容器（aspect-ratio 鎖定的容器）的百分比
+            top: "7%",      // 距離頂部 2% - 增大值向下移動
+            right: "12%",    // 距離右側 3% - 增大值向左移動
+            // 大小調整：相對於父容器的百分比
+            width: "11%",   // 按鈕寬度 - 增大值變寬
+            height: "25%",  // 按鈕高度 - 增大值變高
+            // 旋轉調整（可選）：取消註解下面這行並調整角度
+            // transform: "rotate(0deg)",  // 旋轉角度：正值順時針，負值逆時針
           }}
           title={`點擊檯燈切換${currentTheme === "dark" ? "淺色" : "深色"}模式`}
           aria-label={`Switch to ${currentTheme === "dark" ? "light" : "dark"} mode`}
         >
-          {/* Hover glow effect */}
+          {/* Hover glow effect - 亮燈效果區塊 */}
+          {/* 
+            調整說明：
+            - 大小：修改 width 和 height 的值（確保相等才能是正圓形）
+              例如：w-32 h-32 或 w-[80px] h-[80px] 或 w-[15%] h-[15%]
+            - 位置：修改 top, left, transform 來調整位置
+              使用 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 來居中
+            - 形狀：rounded-full 確保是圓形（前提是寬高相等）
+          */}
           <div
-            className={`absolute inset-0 rounded-full transition-all duration-300 ${
+            className={`absolute rounded-full transition-all duration-300 ${
               isLampHovered
                 ? currentTheme === "dark"
-                  ? "bg-yellow-400/20 shadow-[0_0_80px_40px_rgba(250,204,21,0.3)]"
-                  : "bg-yellow-200/30 shadow-[0_0_60px_30px_rgba(250,204,21,0.2)]"
+                  ? "bg-yellow-400/40 shadow-[0_0_80px_40px_rgba(250,204,21,0.5)]"
+                  : "bg-yellow-400/50 shadow-[0_0_60px_30px_rgba(250,204,21,0.7)]"
                 : ""
             }`}
+            style={{
+              // 大小調整：確保寬高相等才能是正圓形
+              // 方式 1: 使用固定像素值
+              width: "80px",   // 圓形直徑 - 增大值變大（如 "100px"）
+              height: "80px",  // 必須與 width 相同
+              
+              // 方式 2: 使用父容器百分比（可選，如果要用百分比可以取消註解下面兩行）
+              // width: "15%",   // 相對於按鈕寬度的百分比
+              // height: "15%",  // 必須與 width 相同
+              
+              // 位置調整：居中顯示（相對於按鈕中心）
+              top: "50%",      // 距離頂部 50%（按鈕中心點）
+              left: "50%",     // 距離左側 50%（按鈕中心點）
+              transform: "translate(-50%, -50%)",  // 居中對齊
+              
+              // 位置微調（可選）：如果要偏移位置可以添加額外的 transform
+              // transform: "translate(-50%, -50%) translateX(10px)",  // 向右偏移 10px
+              // transform: "translate(-50%, -50%) translateY(10px)",  // 向下偏移 10px
+            }}
           />
-
-          {/* Tooltip */}
-          <div
-            className={`absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-              isLampHovered
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 -translate-y-2 pointer-events-none"
-            } ${
-              currentTheme === "dark"
-                ? "bg-yellow-500 text-gray-900"
-                : "bg-gray-800 text-white"
-            }`}
-          >
-            {currentTheme === "dark"
-              ? "💡 開燈 (Light Mode)"
-              : "🌙 關燈 (Dark Mode)"}
-          </div>
         </button>
       )}
 
