@@ -95,14 +95,14 @@ export default function DashboardWithBackground() {
         className="absolute z-10 [perspective:1000px]"
         style={{
           // 位置調整：修改這些值來移動整個監視器區域
-          top: "11%",
-          left: "31%",
-          width: "35%",
-          height: "47%",
+          top: "11.5%",
+          left: "32%",
+          width: "33%",
+          height: "44%",
         }}
       >
         {/* 3D Transform 容器 - preserve-3d 讓子元素保持 3D 空間 */}
-        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateY(-12deg)_rotateX(-2deg)_skewY(-2.5deg)]">
+        <div className="w-full h-full [transform-style:preserve-3d] [transform-origin:0_0] [transform:perspective(800px)_rotateY(-13deg)_rotateX(0.5deg)_skewY(-2.5deg)]">
           {/* Monitor Screen - Dashboard Container */}
           {/* 3D Transform: rotateY(左右傾斜) rotateX(上下傾斜) translateZ(前後移動) */}
           {/* 調整方式：
