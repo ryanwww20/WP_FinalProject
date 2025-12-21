@@ -26,14 +26,14 @@ export default function DashboardWithBackground() {
   return (
     <div className="fixed inset-0 overflow-hidden z-0">
       {/* Background Image - 填滿整個視窗 */}
-      <img
+      {/* <img
         src={mounted ? backgroundImage : undefined}
         alt="Background"
         className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
         style={{
           opacity: mounted ? 1 : 0,
         }}
-      />
+      /> */}
       
       {/* 固定比例的容器 - 用於精確定位元素 */}
       {/* 圖片比例為 2746x1672 (約 5:3) */}
@@ -52,6 +52,14 @@ export default function DashboardWithBackground() {
           例如：transform: "rotate(15deg)" 順時針旋轉 15 度
                 transform: "rotate(-10deg)" 逆時針旋轉 10 度
       */}
+      <img
+        src={mounted ? backgroundImage : undefined}
+        alt="Background"
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+        style={{
+          opacity: mounted ? 1 : 0,
+        }}
+      />
       {mounted && (
         <button
           onClick={handleLampClick}

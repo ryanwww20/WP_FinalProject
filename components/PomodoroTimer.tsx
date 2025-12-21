@@ -106,7 +106,7 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
                   : "bg-transparent text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              Short
+              Short Break
             </button>
             <button
               onClick={() => switchMode("longBreak")}
@@ -116,7 +116,7 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
                   : "bg-transparent text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              Long
+              Long Break
             </button>
           </div>
 
