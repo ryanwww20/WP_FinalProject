@@ -2,18 +2,50 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { format } from "date-fns";
 import Dashboard from "./Dashboard";
 import Navbar from "./Navbar";
 import PomodoroTimer from "./PomodoroTimer";
+import type { ITodo } from "@/models/Todo";
 
 export default function DashboardWithBackground() {
   const { theme, resolvedTheme, setTheme } = useTheme();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
   const [isLampHovered, setIsLampHovered] = useState(false);
+  const [todos, setTodos] = useState<ITodo[]>([]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.userId) return;
+
+    const fetchTodos = async () => {
+      try {
+        const response = await fetch("/api/todos");
+        if (response.ok) {
+          const data = await response.json();
+          const fetchedTodos: ITodo[] = data.todos || [];
+          // Sort by dueDate, incomplete first, then by date
+          const sortedTodos = fetchedTodos.sort((a, b) => {
+            if (a.completed !== b.completed) {
+              return a.completed ? 1 : -1;
+            }
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          });
+          // Limit to first 6 items for notebook display
+          setTodos(sortedTodos.slice(0, 6));
+        }
+      } catch (error) {
+        console.error("Error fetching todos:", error);
+      }
+    };
+
+    fetchTodos();
+  }, [session?.user?.userId]);
 
   const currentTheme = mounted ? resolvedTheme || theme : "light";
   const backgroundImage =
@@ -217,24 +249,34 @@ export default function DashboardWithBackground() {
               - translateZ: 可以稍微向前或向後，例如 -5px 到 5px
               - 注意：原本有 rotate-2，現在用 3D transform 取代
           */}
-          <div className="w-full h-full bg-amber-50 dark:bg-amber-100 rounded-sm shadow-lg p-2 [transform:rotateY(12deg)_rotateX(-3deg)_translateZ(2px)]">
+          <div className="w-full h-full bg-amber-50 dark:bg-amber-100 rounded-sm shadow-lg p-2 [transform:rotateY(12deg)_rotateX(-3deg)_translateZ(2px)] overflow-y-auto">
           <h4 className="text-[8px] font-bold text-gray-700 mb-1 border-b border-gray-300 pb-0.5">
-            📝 Today's Goals
+            📝 TODO List
           </h4>
-          <ul className="text-[6px] text-gray-600 space-y-0.5">
-            <li className="flex items-center gap-1">
-              <span className="text-green-600">✓</span> Complete assignment
-            </li>
-            <li className="flex items-center gap-1">
-              <span className="text-green-600">✓</span> Review notes
-            </li>
-            <li className="flex items-center gap-1">
-              <span className="text-gray-400">○</span> Study for exam
-            </li>
-            <li className="flex items-center gap-1">
-              <span className="text-gray-400">○</span> Group meeting
-            </li>
-          </ul>
+          {todos.length > 0 ? (
+            <ul className="text-[6px] text-gray-600 space-y-0.5">
+              {todos.map((todo) => {
+                const isOverdue = !todo.completed && new Date(todo.dueDate) < new Date();
+                return (
+                  <li key={todo._id.toString()} className="flex flex-col gap-0.5">
+                    <div className="flex items-start gap-1">
+                      <span className={todo.completed ? "text-green-600" : isOverdue ? "text-red-600" : "text-gray-400"}>
+                        {todo.completed ? "✓" : isOverdue ? "⚠" : "○"}
+                      </span>
+                      <span className={`${todo.completed ? "line-through opacity-60" : ""} ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
+                        {todo.title}
+                      </span>
+                    </div>
+                    <div className={`text-[5px] ml-2 ${isOverdue ? "text-red-500" : "text-gray-500"}`}>
+                      {format(new Date(todo.dueDate), "MM/dd HH:mm")}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-[6px] text-gray-500 italic">No todos yet</p>
+          )}
         </div>
         </div>
       </div>
