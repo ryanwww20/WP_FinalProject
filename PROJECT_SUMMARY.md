@@ -93,19 +93,19 @@ See [README.md](./README.md)
 
 ```bash
 # Install dependencies
-npm install
+yarn install
 
 # Start development server
-npm run dev
+yarn dev
 
 # Build for production
-npm run build
+yarn build
 
 # Start production server
-npm start
+yarn start
 
 # Run linter
-npm run lint
+yarn lint
 ```
 
 ## 🔑 Required Environment Variables
@@ -146,9 +146,9 @@ GITHUB_SECRET=your-github-secret
 
 ### Immediate
 1. Set up `.env.local` with your credentials
-2. Install dependencies: `npm install`
+2. Install dependencies: `yarn install`
 3. Start MongoDB
-4. Run development server: `npm run dev`
+4. Run development server: `yarn dev`
 
 ### Short-term
 1. Configure OAuth providers (Google/GitHub)

@@ -40,9 +40,11 @@ echo "📝 Next steps:"
 echo "1. Edit .env.local and update the OAuth credentials"
 echo "2. For a more secure NEXTAUTH_SECRET, run: openssl rand -base64 32"
 echo "3. Make sure MongoDB is running"
-echo "4. Run: npm install"
-echo "5. Run: npm run dev"
+echo "4. Run: yarn install"
+echo "5. Run: yarn dev"
 echo ""
 echo "📚 For OAuth setup instructions, see README.md"
+echo ""
+echo "⚠️  This project uses Yarn. Please do not use npm."
 
 

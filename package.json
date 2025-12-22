@@ -2,7 +2,14 @@
   "name": "wp-finalproject",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "yarn@1.22.22",
+  "engines": {
+    "node": ">=18.0.0",
+    "yarn": ">=1.22.0",
+    "npm": "please-use-yarn"
+  },
   "scripts": {
+    "preinstall": "npx only-allow yarn",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
