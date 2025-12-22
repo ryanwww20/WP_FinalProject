@@ -14,6 +14,16 @@ export interface Course {
   meetings: CourseMeeting[];
 }
 
+export interface FavoritePlace {
+  placeId: string;        // Google Places ID
+  name: string;           // Place name
+  address: string;        // Formatted address
+  lat: number;            // Latitude
+  lng: number;            // Longitude
+  types?: string[];       // Place types (book_store, cafe, library, etc.)
+  addedAt: Date;          // When the place was favorited
+}
+
 export interface IUser extends Document {
   userId: string;
   name: string;
@@ -81,6 +91,7 @@ export interface IUser extends Document {
   googleCalendarRefreshToken?: string; // Google Calendar refresh token
   googleCalendarEnabled?: boolean; // Whether Google Calendar is enabled
   googleCalendarSyncToken?: string; // Calendar-level sync token
+  favoritePlaces?: FavoritePlace[]; // User's favorite study places
   createdAt: Date;
   updatedAt: Date;
 }
@@ -257,6 +268,37 @@ const UserSchema: Schema<IUser> = new Schema(
     googleCalendarSyncToken: {
       type: String,
     },
+    favoritePlaces: [
+      {
+        placeId: {
+          type: String,
+          required: true,
+        },
+        name: {
+          type: String,
+          required: true,
+        },
+        address: {
+          type: String,
+          required: true,
+        },
+        lat: {
+          type: Number,
+          required: true,
+        },
+        lng: {
+          type: Number,
+          required: true,
+        },
+        types: {
+          type: [String],
+        },
+        addedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

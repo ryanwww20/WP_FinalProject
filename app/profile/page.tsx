@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import ProfileHeader from "./components/ProfileHeader";
 import ScheduleView from "./components/ScheduleView";
 import StatisticsCard from "./components/StatisticsCard";
+import FavoritePlaces from "./components/FavoritePlaces";
 import { StatusProvider } from "./components/StatusContext";
 
 export default async function ProfilePage() {
@@ -29,8 +30,9 @@ export default async function ProfilePage() {
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Left Column - Schedule */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 space-y-6">
               <ScheduleView />
+              <FavoritePlaces />
             </div>
 
             {/* Right Column - Statistics */}

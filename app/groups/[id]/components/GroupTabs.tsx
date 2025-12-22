@@ -48,6 +48,7 @@ export default function GroupTabs({
   const { isLoaded: isMapScriptLoaded } = useLoadScript({
     googleMapsApiKey: apiKey,
     id: "google-map-script",
+    libraries: ["places"],
   });
 
   useEffect(() => {
