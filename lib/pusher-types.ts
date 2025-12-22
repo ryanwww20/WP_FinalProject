@@ -48,6 +48,11 @@ export interface LocationUpdatedEvent {
     lat: number;
     lng: number;
     address?: string;
+    placeName?: string;
+    studyUntil?: string;
+    crowdedness?: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy';
+    hasOutlet?: boolean;
+    hasWifi?: boolean;
     updatedAt: string;
   };
 }

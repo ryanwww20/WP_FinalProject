@@ -624,7 +624,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 position={{ lat: hoveredMemberLocation.lat, lng: hoveredMemberLocation.lng }}
                 options={{
                   disableAutoPan: true,
-                  pixelOffset: { width: 0, height: -40 },
                 }}
               >
                 <div className="p-2">
