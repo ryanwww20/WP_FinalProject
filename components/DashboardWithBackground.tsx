@@ -234,10 +234,10 @@ export default function DashboardWithBackground() {
         className="absolute z-10 [perspective:1000px]"
         style={{
           // 位置調整：修改這些值來移動整個筆記本區域
-          bottom: "8%",
-          right: "3%",
-          width: "18%",
-          height: "28%",
+          bottom: "10%",
+          right: "3.5%",
+          width: "20%",
+          height: "30%",
         }}
       >
         {/* 3D Transform 容器 */}
@@ -249,16 +249,16 @@ export default function DashboardWithBackground() {
               - translateZ: 可以稍微向前或向後，例如 -5px 到 5px
               - 注意：原本有 rotate-2，現在用 3D transform 取代
           */}
-          <div className="w-full h-full bg-amber-50 dark:bg-amber-100 rounded-sm shadow-lg p-2 [transform:rotateY(12deg)_rotateX(-3deg)_translateZ(2px)] overflow-y-auto">
-          <h4 className="text-[8px] font-bold text-gray-700 mb-1 border-b border-gray-300 pb-0.5">
-            📝 TODO List
+          <div className="w-full h-full bg-[#f5edc5] dark:bg-[#f5edc5] rounded-sm shadow-lg p-2 [transform-origin:0_0] [transform:perspective(800px)_rotateZ(15deg)_rotateY(-10deg)_rotateX(0deg)_skewY(-5deg)]">
+          <h4 className="text-[25px] font-bold text-gray-700 mb-1 border-b border-gray-300 pb-0.5">
+            TODO List
           </h4>
           {todos.length > 0 ? (
-            <ul className="text-[6px] text-gray-600 space-y-0.5">
-              {todos.map((todo) => {
+            <ul className="text-[18px] text-gray-600 space-y-0.5">
+              {todos.map((todo, index) => {
                 const isOverdue = !todo.completed && new Date(todo.dueDate) < new Date();
                 return (
-                  <li key={todo._id.toString()} className="flex flex-col gap-0.5">
+                  <li key={todo._id.toString()} className={`flex flex-col gap-0.5 ${index < todos.length - 1 ? "border-b border-gray-300 pb-1" : ""}`}>
                     <div className="flex items-start gap-1">
                       <span className={todo.completed ? "text-green-600" : isOverdue ? "text-red-600" : "text-gray-400"}>
                         {todo.completed ? "✓" : isOverdue ? "⚠" : "○"}
@@ -267,7 +267,7 @@ export default function DashboardWithBackground() {
                         {todo.title}
                       </span>
                     </div>
-                    <div className={`text-[5px] ml-2 ${isOverdue ? "text-red-500" : "text-gray-500"}`}>
+                    <div className={`text-[14px] ml-2 ${isOverdue ? "text-red-500" : "text-gray-500"}`}>
                       {format(new Date(todo.dueDate), "MM/dd HH:mm")}
                     </div>
                   </li>
