@@ -1,0 +1,210 @@
+"use client";
+
+import { usePomodoroTimer, TIMER_SETTINGS } from "./PomodoroTimerContext";
+
+interface PomodoroTimerProps {
+  compact?: boolean; // 是否使用紧凑模式（用于 Laptop 屏幕）
+}
+
+export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
+  const {
+    timerMode,
+    timeLeft,
+    isRunning,
+    completedPomodoros,
+    toggleTimer,
+    resetTimer,
+    switchMode,
+    formatTime,
+  } = usePomodoroTimer();
+
+  if (compact) {
+    // 紧凑模式 - 用于 Laptop 屏幕
+    return (
+      <div className="h-full flex flex-col p-2 min-h-0">
+        {/* <h3 className="text-[8px] font-bold text-primary mb-1 flex-shrink-0">Pomodoro Timer</h3> */}
+        
+        {/* Timer Display - 所有控件 */}
+        <div className="w-full flex flex-col items-center justify-center mb-1.5 flex-shrink-0">
+
+          {/* Mode Selector */}
+          <div className="flex gap-0.5 mb-1.5 w-full mt-4 max-w-[80%]">
+            <button
+              onClick={() => switchMode("work")}
+              className={`flex-1 px-0.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                timerMode === "work"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-transparent text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Focus
+            </button>
+            <button
+              onClick={() => switchMode("shortBreak")}
+              className={`flex-1 px-0.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                timerMode === "shortBreak"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-transparent text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Short Break
+            </button>
+            <button
+              onClick={() => switchMode("longBreak")}
+              className={`flex-1 px-0.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                timerMode === "longBreak"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-transparent text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Long Break
+            </button>
+          </div>
+
+          {/* 时间显示 */}
+          <div className="flex flex-col items-center mb-1.5">
+            <span className="text-[70px] font-bold text-foreground tabular-nums">
+              {formatTime(timeLeft)}
+            </span>
+          </div>
+
+          {/* Controls */}
+          <div className="relative flex justify-center w-full">
+            <div className="w-24 h-9 mt-2 rounded-lg bg-[#e3e2e2] top-0 left-0 right-0 bottom-0"></div>
+            <button
+              onClick={toggleTimer}
+              className={`w-24 h-10 rounded-lg flex items-center justify-center absolute text-[16px] font-bold transition-all] ${
+                isRunning
+                  ? "bg-orange-500 hover:bg-orange-600 text-white mt-1"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              }`}
+            >
+              {isRunning ? "Pause" : "Start"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 完整模式 - 用于 Monitor 屏幕（如果需要的话）
+  return (
+    <div className="bg-card rounded-xl shadow-sm border border-border p-8">
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-foreground mb-6">Pomodoro Timer</h2>
+        
+        {/* Mode Selector */}
+        <div className="flex justify-center gap-2 mb-8">
+          <button
+            onClick={() => switchMode("work")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              timerMode === "work"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Focus
+          </button>
+          <button
+            onClick={() => switchMode("shortBreak")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              timerMode === "shortBreak"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Short Break
+          </button>
+          <button
+            onClick={() => switchMode("longBreak")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              timerMode === "longBreak"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Long Break
+          </button>
+        </div>
+
+        {/* Timer Display */}
+        <div className="relative w-64 h-64 mx-auto mb-8">
+          <svg className="w-full h-full transform -rotate-90">
+            <circle
+              cx="128"
+              cy="128"
+              r="120"
+              stroke="currentColor"
+              strokeWidth="8"
+              fill="none"
+              className="text-muted"
+            />
+            <circle
+              cx="128"
+              cy="128"
+              r="120"
+              stroke="currentColor"
+              strokeWidth="8"
+              fill="none"
+              strokeDasharray={2 * Math.PI * 120}
+              strokeDashoffset={
+                2 * Math.PI * 120 * (1 - timeLeft / TIMER_SETTINGS[timerMode])
+              }
+              strokeLinecap="round"
+              className={`transition-all duration-1000 ${
+                timerMode === "work" ? "text-primary" : "text-green-500"
+              }`}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-5xl font-bold text-foreground tabular-nums">
+              {formatTime(timeLeft)}
+            </span>
+            <span className="text-sm text-muted-foreground mt-2 capitalize">
+              {timerMode === "work" ? "Focus Time" : timerMode === "shortBreak" ? "Short Break" : "Long Break"}
+            </span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={toggleTimer}
+            className={`px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 ${
+              isRunning
+                ? "bg-orange-500 hover:bg-orange-600 text-white"
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            }`}
+          >
+            {isRunning ? "Pause" : "Start"}
+          </button>
+          <button
+            onClick={resetTimer}
+            className="px-6 py-3 rounded-full text-lg font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* Completed Pomodoros */}
+        <div className="mt-8 flex items-center justify-center gap-2">
+          <span className="text-sm text-muted-foreground">Completed today:</span>
+          <div className="flex gap-1">
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                  i < completedPomodoros % 4
+                    ? "bg-primary"
+                    : "bg-muted"
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-sm font-medium text-foreground">{completedPomodoros}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

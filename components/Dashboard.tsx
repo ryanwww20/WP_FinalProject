@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { format, startOfDay, endOfDay, isAfter, addDays } from "date-fns";
 import Link from "next/link";
@@ -33,32 +33,12 @@ type ScheduleItem =
       completed: boolean;
     } & { type: "todo" });
 
-// Pomodoro Timer modes
-type TimerMode = "work" | "shortBreak" | "longBreak";
-
-const TIMER_SETTINGS = {
-  work: 25 * 60, // 25 minutes
-  shortBreak: 5 * 60, // 5 minutes
-  longBreak: 15 * 60, // 15 minutes
-};
-
 export default function Dashboard() {
   const { data: session } = useSession();
   const [todaysEvents, setTodaysEvents] = useState<CalendarEvent[]>([]);
   const [todaysTodos, setTodaysTodos] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Pomodoro Timer State
-  const [timerMode, setTimerMode] = useState<TimerMode>("work");
-  const [timeLeft, setTimeLeft] = useState(TIMER_SETTINGS.work);
-  const [isRunning, setIsRunning] = useState(false);
-  const [completedPomodoros, setCompletedPomodoros] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
-  const [isApiSyncing, setIsApiSyncing] = useState(false);
-  const fetchTodayDataRef = useRef<(() => Promise<void>) | null>(null);
-
-  // Define fetchTodayData early so it can be used in other callbacks
   const fetchTodayData = useCallback(async () => {
     try {
       const now = new Date();
@@ -93,10 +73,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, []);
-  
-  // Update ref synchronously - fetchTodayData is stable (empty deps) and defined above
-  // This must be synchronous to ensure ref is available when useEffect runs
-  fetchTodayDataRef.current = fetchTodayData;
 
   useEffect(() => {
     if (!session?.user?.userId) return;
@@ -108,197 +84,18 @@ export default function Dashboard() {
       const nextMidnight = startOfDay(addDays(now, 1));
       const delay = nextMidnight.getTime() - now.getTime();
       midnightTimeout = setTimeout(() => {
-        fetchTodayDataRef.current?.();
+        fetchTodayData();
         scheduleMidnightRefresh();
       }, delay);
     };
 
-    fetchTodayDataRef.current?.();
+    fetchTodayData();
     scheduleMidnightRefresh();
-    checkExistingSession(); // Check for active focus session on mount
 
     return () => {
       clearTimeout(midnightTimeout);
     };
-  }, [session?.user?.userId]);
-
-  // Check for existing focus session on mount
-  const checkExistingSession = async () => {
-    try {
-      const response = await fetch('/api/focus-session');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.isActive && data.session) {
-          // Resume the session from server state
-          setSessionStartTime(new Date(data.session.startedAt));
-          const elapsedSeconds = Math.floor((Date.now() - new Date(data.session.startedAt).getTime()) / 1000);
-          const remainingSeconds = (data.session.targetDuration || 25) * 60 - elapsedSeconds;
-
-          if (remainingSeconds > 0) {
-            setTimeLeft(remainingSeconds);
-            setIsRunning(true);
-            setTimerMode('work');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error checking existing session:', error);
-    }
-  };
-
-  // Stop focus session (API integration) - defined early for use in useEffect
-  const stopFocusSession = useCallback(async () => {
-    if (isApiSyncing || !sessionStartTime) return;
-
-    setIsApiSyncing(true);
-    try {
-      console.log('[Dashboard] Stopping focus session...');
-      const response = await fetch('/api/focus-session', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stop' }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`[Dashboard] Session completed: ${data.studyTime} minutes studied`);
-        setSessionStartTime(null);
-
-        // Pusher now handles real-time updates to all group components
-        // No need for browser events anymore
-
-        // Refresh today's data to show updated stats
-        fetchTodayDataRef.current?.();
-      } else {
-        const error = await response.json();
-        console.error('Failed to stop session:', error);
-      }
-    } catch (error) {
-      console.error('Error stopping session:', error);
-    } finally {
-      setIsApiSyncing(false);
-    }
-  }, [isApiSyncing, sessionStartTime]);
-
-  // Pomodoro Timer Effect
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isRunning) {
-      // Timer completed
-      if (timerMode === "work") {
-        // Work session completed - sync with API
-        stopFocusSession();
-        setCompletedPomodoros((prev) => prev + 1);
-        // After 4 pomodoros, take a long break
-        if ((completedPomodoros + 1) % 4 === 0) {
-          setTimerMode("longBreak");
-          setTimeLeft(TIMER_SETTINGS.longBreak);
-        } else {
-          setTimerMode("shortBreak");
-          setTimeLeft(TIMER_SETTINGS.shortBreak);
-        }
-      } else {
-        // Break completed - back to work mode
-        setTimerMode("work");
-        setTimeLeft(TIMER_SETTINGS.work);
-      }
-      setIsRunning(false);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, timeLeft, timerMode, completedPomodoros, stopFocusSession]);
-
-  // Start focus session (API integration)
-  const startFocusSession = useCallback(async () => {
-    if (isApiSyncing) return;
-
-    setIsApiSyncing(true);
-    try {
-      console.log('[Dashboard] Starting focus session...');
-      const response = await fetch('/api/focus-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionType: 'pomodoro',
-          targetDuration: Math.floor(TIMER_SETTINGS.work / 60), // Convert seconds to minutes
-        }),
-      });
-
-      console.log('[Dashboard] Focus session API response:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[Dashboard] Focus session started:', data);
-        setSessionStartTime(new Date(data.session.startedAt));
-        setIsRunning(true);
-      } else {
-        const error = await response.json();
-        console.error('Failed to start session:', error);
-        alert(error.error || 'Failed to start focus session');
-      }
-    } catch (error) {
-      console.error('Error starting session:', error);
-      alert('Failed to start focus session. Please try again.');
-    } finally {
-      setIsApiSyncing(false);
-    }
-  }, [isApiSyncing]);
-
-  // Timer controls
-  const toggleTimer = useCallback(() => {
-    if (!isRunning) {
-      // Starting timer
-      if (timerMode === 'work' && !sessionStartTime) {
-        // Starting a work session - sync with API
-        startFocusSession();
-      } else {
-        // Starting a break or resuming
-        setIsRunning(true);
-      }
-    } else {
-      // Pausing timer
-      if (timerMode === 'work' && sessionStartTime) {
-        // Pausing work session - stop API session
-        stopFocusSession();
-      }
-      setIsRunning(false);
-    }
-  }, [isRunning, timerMode, sessionStartTime, startFocusSession, stopFocusSession]);
-
-  const resetTimer = useCallback(() => {
-    if (isRunning && timerMode === 'work' && sessionStartTime) {
-      // Stop API session when resetting active work timer
-      stopFocusSession();
-    }
-    setIsRunning(false);
-    setTimeLeft(TIMER_SETTINGS[timerMode]);
-    setSessionStartTime(null);
-  }, [timerMode, isRunning, sessionStartTime, stopFocusSession]);
-
-  const switchMode = useCallback((mode: TimerMode) => {
-    if (isRunning && timerMode === 'work' && sessionStartTime) {
-      // Stop API session when switching modes
-      stopFocusSession();
-    }
-    setIsRunning(false);
-    setTimerMode(mode);
-    setTimeLeft(TIMER_SETTINGS[mode]);
-    setSessionStartTime(null);
-  }, [isRunning, timerMode, sessionStartTime, stopFocusSession]);
-
-  // Format time as MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  }, [session?.user?.userId, fetchTodayData]);
 
   if (!session) return null;
 
@@ -318,112 +115,8 @@ export default function Dashboard() {
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
 
-  // Check if in focus mode (running + work mode)
-  const isFocusMode = isRunning && timerMode === "work";
-
   return (
-    <>
-      {/* Focus Mode Overlay - Always rendered, controlled by CSS */}
-      <div
-        className={`fixed inset-0 bg-gray-950 z-40 flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
-          isFocusMode
-            ? 'opacity-100 pointer-events-auto'
-            : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        {/* Subtle background pattern */}
-        <div className={`absolute inset-0 transition-opacity duration-700 ${isFocusMode ? 'opacity-5' : 'opacity-0'}`}>
-          <div className="absolute inset-0" style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-            backgroundSize: '40px 40px'
-          }} />
-      </div>
-
-        {/* Main Content */}
-        <div className={`relative z-10 text-center transition-all duration-700 ease-out ${
-          isFocusMode
-            ? 'opacity-100 scale-100 translate-y-0'
-            : 'opacity-0 scale-95 translate-y-8'
-        }`}>
-          {/* Focus Mode Label */}
-          <div className={`mb-8 transition-all duration-500 delay-200 ${isFocusMode ? 'opacity-100' : 'opacity-0'}`}>
-            <span className="text-primary/80 text-sm font-medium tracking-widest uppercase animate-pulse">
-              Focus Mode
-            </span>
-          </div>
-
-          {/* Timer Display - Enlarged */}
-          <div className={`relative w-80 h-80 md:w-96 md:h-96 mx-auto mb-12 transition-all duration-700 ${
-            isFocusMode ? 'scale-100' : 'scale-75'
-          }`}>
-            <svg className="w-full h-full transform -rotate-90">
-              <circle
-                cx="50%"
-                cy="50%"
-                r="45%"
-                stroke="currentColor"
-                strokeWidth="4"
-                fill="none"
-                className="text-gray-800"
-              />
-              <circle
-                cx="50%"
-                cy="50%"
-                r="45%"
-                stroke="currentColor"
-                strokeWidth="6"
-                fill="none"
-                strokeDasharray={`${2 * Math.PI * 45}%`}
-                strokeDashoffset={`${2 * Math.PI * 45 * (1 - timeLeft / TIMER_SETTINGS[timerMode])}%`}
-                strokeLinecap="round"
-                className="text-primary transition-all duration-1000"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-7xl md:text-8xl font-bold text-white tabular-nums">
-                {formatTime(timeLeft)}
-              </span>
-              <span className={`text-gray-500 text-sm mt-4 transition-opacity duration-500 delay-300 ${
-                isFocusMode ? 'opacity-100' : 'opacity-0'
-              }`}>
-                Focus Time
-              </span>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className={`flex justify-center gap-6 transition-all duration-500 delay-100 ${
-            isFocusMode ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}>
-            <button
-              onClick={toggleTimer}
-              className="px-10 py-4 rounded-full text-xl font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-all duration-300 hover:scale-105 shadow-lg shadow-orange-500/20"
-            >
-              Pause
-            </button>
-            <button
-              onClick={resetTimer}
-              className="px-8 py-4 rounded-full text-xl font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all duration-300 hover:scale-105"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-
-        {/* Exit hint */}
-        <div className={`absolute bottom-8 text-gray-600 text-sm transition-all duration-500 delay-500 ${
-          isFocusMode ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        }`}>
-          Press <span className="text-gray-400">Pause</span> to exit focus mode
-        </div>
-          </div>
-
-      {/* Main Dashboard Content */}
-      <div className={`w-full max-w-6xl mx-auto space-y-8 p-4 transition-all duration-700 ease-in-out ${
-        isFocusMode
-          ? 'opacity-0 scale-95 pointer-events-none'
-          : 'opacity-100 scale-100 pointer-events-auto'
-      }`}>
+    <div className="w-full max-w-6xl mx-auto space-y-8 p-4">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -445,128 +138,8 @@ export default function Dashboard() {
           </Link>
               </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Left Column - Pomodoro Timer */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-card rounded-xl shadow-sm border border-border p-8">
-              <div className="text-center">
-                <h2 className="text-lg font-semibold text-foreground mb-6">Pomodoro Timer</h2>
-
-                {/* Mode Selector */}
-                <div className="flex justify-center gap-2 mb-8">
-                  <button
-                    onClick={() => switchMode("work")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      timerMode === "work"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    Focus
-                  </button>
-                  <button
-                    onClick={() => switchMode("shortBreak")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      timerMode === "shortBreak"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    Short Break
-                  </button>
-                  <button
-                    onClick={() => switchMode("longBreak")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      timerMode === "longBreak"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    Long Break
-                  </button>
-                </div>
-
-                {/* Timer Display */}
-                <div className="relative w-64 h-64 mx-auto mb-8">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle
-                      cx="128"
-                      cy="128"
-                      r="120"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="none"
-                      className="text-muted"
-                    />
-                    <circle
-                      cx="128"
-                      cy="128"
-                      r="120"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeDasharray={2 * Math.PI * 120}
-                      strokeDashoffset={
-                        2 * Math.PI * 120 * (1 - timeLeft / TIMER_SETTINGS[timerMode])
-                      }
-                      strokeLinecap="round"
-                      className={`transition-all duration-1000 ${
-                        timerMode === "work" ? "text-primary" : "text-green-500"
-                      }`}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-5xl font-bold text-foreground tabular-nums">
-                      {formatTime(timeLeft)}
-                    </span>
-                    <span className="text-sm text-muted-foreground mt-2 capitalize">
-                      {timerMode === "work" ? "Focus Time" : timerMode === "shortBreak" ? "Short Break" : "Long Break"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Controls */}
-                <div className="flex justify-center gap-4">
-                  <button
-                    onClick={toggleTimer}
-                    className={`px-8 py-3 rounded-full text-lg font-semibold transition-all duration-300 ${
-                      isRunning
-                        ? "bg-orange-500 hover:bg-orange-600 text-white"
-                        : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                    }`}
-                  >
-                    {isRunning ? "Pause" : "Start"}
-                  </button>
-                  <button
-                    onClick={resetTimer}
-                    className="px-6 py-3 rounded-full text-lg font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
-                  >
-                    Reset
-                  </button>
-                </div>
-
-                {/* Completed Pomodoros */}
-                <div className="mt-8 flex items-center justify-center gap-2">
-                  <span className="text-sm text-muted-foreground">Completed today:</span>
-                  <div className="flex gap-1">
-                    {[...Array(4)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-                          i < completedPomodoros % 4
-                            ? "bg-primary"
-                            : "bg-muted"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm font-medium text-foreground">{completedPomodoros}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Schedule & Stats (Sticky) */}
+        {/* Schedule & Stats */}
+        <div className="grid md:grid-cols-1 gap-6">
           <div className="space-y-4">
             <div className="sticky top-20 space-y-6">
               {/* Today's Schedule */}
@@ -678,7 +251,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </div>
   );
 }
