@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Autocomplete } from "@react-google-maps/api";
 
 interface LocationFormData {
   placeName: string;
@@ -8,6 +9,19 @@ interface LocationFormData {
   crowdedness: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy' | '';
   hasOutlet: boolean;
   hasWifi: boolean;
+  placeId?: string;
+  placeLat?: number;
+  placeLng?: number;
+  placeTypes?: string[];
+  selectedGroups?: string[]; // 選擇要更新位置的群組 IDs
+}
+
+interface UserGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  coverImage?: string;
+  role: string;
 }
 
 interface LocationFormModalProps {
@@ -22,6 +36,8 @@ interface LocationFormModalProps {
     hasWifi?: boolean;
   };
   isSubmitting?: boolean;
+  isScriptLoaded?: boolean;
+  currentGroupId?: string; // 當前群組 ID，預設選中
 }
 
 const crowdednessOptions = [
@@ -38,6 +54,8 @@ export default function LocationFormModal({
   onSubmit,
   initialData,
   isSubmitting = false,
+  isScriptLoaded = false,
+  currentGroupId,
 }: LocationFormModalProps) {
   const [formData, setFormData] = useState<LocationFormData>({
     placeName: '',
@@ -45,7 +63,12 @@ export default function LocationFormModal({
     crowdedness: '',
     hasOutlet: false,
     hasWifi: false,
+    selectedGroups: currentGroupId ? [currentGroupId] : [],
   });
+  const [isManualInput, setIsManualInput] = useState(false);
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -62,9 +85,79 @@ export default function LocationFormModal({
         crowdedness: initialData?.crowdedness || '',
         hasOutlet: initialData?.hasOutlet ?? false,
         hasWifi: initialData?.hasWifi ?? false,
+        selectedGroups: currentGroupId ? [currentGroupId] : [],
       });
+      setIsManualInput(false);
+      
+      // 載入使用者的群組列表
+      fetchUserGroups();
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, currentGroupId]);
+
+  const fetchUserGroups = async () => {
+    setIsLoadingGroups(true);
+    try {
+      const response = await fetch('/api/groups/my-groups');
+      if (response.ok) {
+        const data = await response.json();
+        setUserGroups(data.groups || []);
+      }
+    } catch (error) {
+      console.error('Error fetching user groups:', error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
+  const toggleGroupSelection = (groupId: string) => {
+    setFormData(prev => {
+      const currentSelected = prev.selectedGroups || [];
+      const isSelected = currentSelected.includes(groupId);
+      
+      return {
+        ...prev,
+        selectedGroups: isSelected
+          ? currentSelected.filter(id => id !== groupId)
+          : [...currentSelected, groupId],
+      };
+    });
+  };
+
+  // 處理 Autocomplete 選擇
+  const handlePlaceSelected = () => {
+    try {
+      if (!autocompleteRef.current) {
+        return;
+      }
+      
+      const place = autocompleteRef.current.getPlace();
+      
+      // 檢查 place 是否存在且有必要的屬性
+      if (!place) {
+        console.warn('No place data returned from autocomplete');
+        return;
+      }
+      
+      if (!place.geometry || !place.geometry.location) {
+        console.warn('Place has no geometry or location data');
+        return;
+      }
+      
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      
+      setFormData({
+        ...formData,
+        placeName: place.name || formData.placeName,
+        placeId: place.place_id,
+        placeLat: lat,
+        placeLng: lng,
+        placeTypes: place.types || [],
+      });
+    } catch (error) {
+      console.error('Error handling place selection:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,17 +198,72 @@ export default function LocationFormModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* 地點名稱 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                在哪裡讀書？
-              </label>
-              <input
-                type="text"
-                value={formData.placeName}
-                onChange={(e) => setFormData({ ...formData, placeName: e.target.value })}
-                placeholder="例如：星巴克、圖書館、咖啡廳..."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                disabled={isSubmitting}
-              />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  在哪裡讀書？
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsManualInput(!isManualInput);
+                    // 切換模式時清除地標資訊
+                    if (!isManualInput) {
+                      setFormData({
+                        ...formData,
+                        placeId: undefined,
+                        placeLat: undefined,
+                        placeLng: undefined,
+                        placeTypes: undefined,
+                      });
+                    }
+                  }}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  disabled={isSubmitting}
+                >
+                  {isManualInput ? "🔍 搜尋店家" : "✏️ 手動輸入"}
+                </button>
+              </div>
+              {isManualInput || !isScriptLoaded ? (
+                <input
+                  type="text"
+                  value={formData.placeName}
+                  onChange={(e) => setFormData({ ...formData, placeName: e.target.value })}
+                  placeholder="例如：星巴克、圖書館、咖啡廳..."
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  disabled={isSubmitting}
+                />
+              ) : (
+                <Autocomplete
+                  onLoad={(autocomplete) => {
+                    autocompleteRef.current = autocomplete;
+                    if (autocomplete) {
+                      autocomplete.setFields(['place_id', 'geometry', 'name', 'formatted_address', 'types']);
+                      autocomplete.setComponentRestrictions({ country: 'tw' });
+                      autocomplete.setTypes(['book_store', 'cafe', 'library']);
+                    }
+                  }}
+                  onPlaceChanged={handlePlaceSelected}
+                  options={{
+                    types: ['book_store', 'cafe', 'library'],
+                    componentRestrictions: { country: 'tw' },
+                    language: 'zh-TW',
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={formData.placeName}
+                    onChange={(e) => setFormData({ ...formData, placeName: e.target.value })}
+                    placeholder="搜尋書店、咖啡廳、圖書館..."
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    disabled={isSubmitting}
+                  />
+                </Autocomplete>
+              )}
+              {formData.placeId && (
+                <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                  ✓ 已選擇地標：{formData.placeName}
+                </p>
+              )}
             </div>
 
             {/* 預計讀到幾點 */}
@@ -191,6 +339,47 @@ export default function LocationFormModal({
               </div>
             </div>
 
+            {/* 選擇要更新的群組 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                📢 要在哪些群組更新位置？
+              </label>
+              {isLoadingGroups ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">載入群組中...</div>
+              ) : userGroups.length === 0 ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">您還沒有加入任何群組</div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                  {userGroups.map((group) => (
+                    <label key={group._id} className="flex items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={formData.selectedGroups?.includes(group._id) || false}
+                        onChange={() => toggleGroupSelection(group._id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        disabled={isSubmitting}
+                      />
+                      <div className="ml-3 flex-1">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {group.name}
+                        </span>
+                        {group.role && (
+                          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                            ({group.role === 'owner' ? '群主' : group.role === 'admin' ? '管理員' : '成員'})
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {formData.selectedGroups && formData.selectedGroups.length > 0 && (
+                <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  已選擇 {formData.selectedGroups.length} 個群組
+                </p>
+              )}
+            </div>
+
             {/* 按鈕 */}
             <div className="flex gap-3 pt-4">
               <button
@@ -222,5 +411,6 @@ export default function LocationFormModal({
     </div>
   );
 }
+
 
 

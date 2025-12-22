@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
+import { GoogleMap, Marker, InfoWindow, Autocomplete } from "@react-google-maps/api";
 import { useSession } from "next-auth/react";
 import LocationFormModal from "./LocationFormModal";
 
@@ -55,11 +55,22 @@ interface MemberLocation {
   lng: number;
   address: string;
   placeName?: string;
+  placeId?: string;
+  placeTypes?: string[];
   studyUntil?: string;
   crowdedness?: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy';
   hasOutlet?: boolean;
   hasWifi?: boolean;
   updatedAt: string;
+}
+
+interface SearchResult {
+  placeId: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  types?: string[];
 }
 
 interface MapTabProps {
@@ -77,12 +88,21 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
   const [mapType, setMapType] = useState<"roadmap" | "satellite" | "hybrid" | "terrain">("roadmap");
   const [locations, setLocations] = useState<Location[]>([]);
   const [memberLocations, setMemberLocations] = useState<MemberLocation[]>([]);
-  const [filterType, setFilterType] = useState<"all" | "bookstore" | "cafe">("all");
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [currentUserLocation, setCurrentUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [isRemovingLocation, setIsRemovingLocation] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [selectedSearchResult, setSelectedSearchResult] = useState<SearchResult | null>(null);
+  const [searchMode, setSearchMode] = useState<"nearby" | "global">("nearby");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [favoritePlaces, setFavoritePlaces] = useState<Set<string>>(new Set());
+  const [isFavoriting, setIsFavoriting] = useState(false);
   const mapRef = useRef<any>(null);
+  const searchAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
 
   // 取得 Google Maps API Key（從環境變數）
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -95,6 +115,10 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
   const onLoad = useCallback((map: any) => {
     mapRef.current = map;
     setMap(map);
+    // 初始化 Places Service
+    if (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.places) {
+      placesServiceRef.current = new window.google.maps.places.PlacesService(map);
+    }
   }, []);
 
   // 地圖卸載回調
@@ -311,47 +335,79 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
     crowdedness: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy' | '';
     hasOutlet: boolean;
     hasWifi: boolean;
+    placeId?: string;
+    placeLat?: number;
+    placeLng?: number;
+    placeTypes?: string[];
+    selectedGroups?: string[];
   }) => {
-    if (!session?.user?.userId || !currentUserLocation) {
-      alert("請先獲取位置");
+    if (!session?.user?.userId) {
+      alert("請先登入");
       return;
     }
+
+    // 如果有選擇地標，使用地標座標；否則使用當前 GPS 位置
+    const lat = formData.placeLat ?? currentUserLocation?.lat;
+    const lng = formData.placeLng ?? currentUserLocation?.lng;
+
+    if (!lat || !lng) {
+      alert("請先獲取位置或選擇地標");
+      return;
+    }
+
+    // 檢查是否選擇了群組
+    const targetGroups = formData.selectedGroups && formData.selectedGroups.length > 0 
+      ? formData.selectedGroups 
+      : [groupId]; // 如果沒選擇，預設只更新當前群組
 
     setIsUpdatingLocation(true);
     try {
       // 獲取地址
-      const address = await getAddressFromCoordinates(
-        currentUserLocation.lat,
-        currentUserLocation.lng
+      const address = await getAddressFromCoordinates(lat, lng);
+
+      const locationData = {
+        lat,
+        lng,
+        address,
+        placeName: formData.placeName || undefined,
+        studyUntil: formData.studyUntil || undefined,
+        crowdedness: formData.crowdedness || undefined,
+        hasOutlet: formData.hasOutlet,
+        hasWifi: formData.hasWifi,
+        placeId: formData.placeId,
+        placeTypes: formData.placeTypes,
+      };
+
+      // 批次更新多個群組
+      const updatePromises = targetGroups.map(gId =>
+        fetch(`/api/groups/${gId}/location`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(locationData),
+        })
       );
 
-      // 更新到伺服器
-      const response = await fetch(`/api/groups/${groupId}/location`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          lat: currentUserLocation.lat,
-          lng: currentUserLocation.lng,
-          address,
-          placeName: formData.placeName || undefined,
-          studyUntil: formData.studyUntil || undefined,
-          crowdedness: formData.crowdedness || undefined,
-          hasOutlet: formData.hasOutlet,
-          hasWifi: formData.hasWifi,
-        }),
-      });
+      const results = await Promise.allSettled(updatePromises);
+      
+      // 計算成功和失敗的數量
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
+      const failCount = results.length - successCount;
 
-      if (response.ok) {
-        // 重新載入成員位置
+      if (successCount > 0) {
+        // 重新載入成員位置（當前群組）
         await fetchMemberLocations();
         setShowLocationForm(false);
         setCurrentUserLocation(null);
-        alert("位置已發布！");
+        
+        if (failCount === 0) {
+          alert(`位置已成功發布到 ${successCount} 個群組！`);
+        } else {
+          alert(`位置已發布到 ${successCount} 個群組，${failCount} 個群組更新失敗`);
+        }
       } else {
-        const error = await response.json();
-        alert(error.error || "發布位置失敗");
+        alert("所有群組的位置更新都失敗了");
       }
     } catch (error: any) {
       console.error("Error updating location:", error);
@@ -395,12 +451,350 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
     }
   };
 
-  // 組件載入時獲取成員位置
+  // 載入收藏清單
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const response = await fetch('/api/profile/favorites');
+      if (response.ok) {
+        const data = await response.json();
+        const favoriteIds = new Set(data.favorites.map((fav: any) => fav.placeId));
+        setFavoritePlaces(favoriteIds);
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    }
+  }, []);
+
+  // 新增收藏
+  const handleAddFavorite = useCallback(async (place: {
+    placeId: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    types?: string[];
+  }) => {
+    if (!session?.user?.userId) {
+      alert('請先登入');
+      return;
+    }
+
+    setIsFavoriting(true);
+    try {
+      const response = await fetch('/api/profile/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(place),
+      });
+
+      if (response.ok) {
+        setFavoritePlaces(prev => new Set([...prev, place.placeId]));
+        alert('已加入收藏！');
+      } else {
+        const error = await response.json();
+        alert(error.error || '加入收藏失敗');
+      }
+    } catch (error) {
+      console.error('Error adding favorite:', error);
+      alert('加入收藏時發生錯誤');
+    } finally {
+      setIsFavoriting(false);
+    }
+  }, [session]);
+
+  // 移除收藏
+  const handleRemoveFavorite = useCallback(async (placeId: string) => {
+    if (!session?.user?.userId) {
+      alert('請先登入');
+      return;
+    }
+
+    setIsFavoriting(true);
+    try {
+      const response = await fetch('/api/profile/favorites', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ placeId }),
+      });
+
+      if (response.ok) {
+        setFavoritePlaces(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(placeId);
+          return newSet;
+        });
+        alert('已取消收藏！');
+      } else {
+        const error = await response.json();
+        alert(error.error || '取消收藏失敗');
+      }
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      alert('取消收藏時發生錯誤');
+    } finally {
+      setIsFavoriting(false);
+    }
+  }, [session]);
+
+  // 組件載入時獲取成員位置和收藏清單
   useEffect(() => {
     if (isLoaded && groupId) {
       fetchMemberLocations();
+      fetchFavorites();
     }
-  }, [isLoaded, groupId, fetchMemberLocations]);
+  }, [isLoaded, groupId, fetchMemberLocations, fetchFavorites]);
+
+  // 處理搜尋自動完成選擇
+  const onPlaceSelected = useCallback(() => {
+    try {
+      if (!searchAutocompleteRef.current) {
+        return;
+      }
+      
+      const place = searchAutocompleteRef.current.getPlace();
+      if (!place) {
+        setSearchError("無法獲取地點資訊");
+        return;
+      }
+      
+      if (!place.geometry || !place.geometry.location) {
+        setSearchError("該地點沒有位置資訊");
+        setSearchResults([]);
+        return;
+      }
+      
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      const result: SearchResult = {
+        placeId: place.place_id || '',
+        name: place.name || '',
+        address: place.formatted_address || '',
+        lat,
+        lng,
+        types: place.types || [],
+      };
+      setSearchResults([result]);
+      setSelectedSearchResult(result);
+      setSearchQuery(place.name || '');
+      setSearchError(null);
+      // 移動地圖到搜尋結果位置
+      if (map) {
+        map.setCenter({ lat, lng });
+        map.setZoom(15);
+      }
+    } catch (error) {
+      console.error("Error handling place selection:", error);
+      setSearchError("處理地點選擇時發生錯誤");
+      setSearchResults([]);
+    }
+  }, [map]);
+
+  // 執行附近搜尋
+  const performNearbySearch = useCallback(async () => {
+    if (!map || !placesServiceRef.current || !searchQuery.trim()) {
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+    
+    // 設置超時機制，防止搜尋永遠卡住
+    const timeoutId = setTimeout(() => {
+      setIsSearching(false);
+      setSearchError("搜尋逾時，請稍後再試");
+      setSearchResults([]);
+    }, 10000); // 10 秒超時
+
+    try {
+      const bounds = map.getBounds();
+      if (!bounds) {
+        clearTimeout(timeoutId);
+        setIsSearching(false);
+        setSearchError("無法獲取地圖範圍");
+        return;
+      }
+
+      const request: google.maps.places.PlaceSearchRequest = {
+        query: searchQuery,
+        bounds: bounds,
+        type: ['book_store', 'cafe', 'library'],
+        language: 'zh-TW',
+      };
+
+      let callbackExecuted = false;
+      placesServiceRef.current.textSearch(request, (results, status) => {
+        if (callbackExecuted) return; // 防止重複執行
+        callbackExecuted = true;
+        clearTimeout(timeoutId);
+        
+        try {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+            if (results && results.length > 0) {
+              const formattedResults: SearchResult[] = results.map((place) => ({
+                placeId: place.place_id || '',
+                name: place.name || '',
+                address: place.formatted_address || '',
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0,
+                types: place.types || [],
+              }));
+              setSearchResults(formattedResults);
+              setSearchError(null);
+              // 調整地圖視窗以顯示所有結果
+              if (map) {
+                const bounds = new window.google.maps.LatLngBounds();
+                formattedResults.forEach((result) => {
+                  bounds.extend({ lat: result.lat, lng: result.lng });
+                });
+                map.fitBounds(bounds);
+              }
+            } else {
+              // OK 狀態但沒有結果
+              setSearchResults([]);
+              setSearchError("附近沒有找到符合條件的店家");
+            }
+          } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+            setSearchResults([]);
+            setSearchError("附近沒有找到符合條件的店家");
+          } else if (status === window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+            setSearchResults([]);
+            setSearchError("搜尋請求過於頻繁，請稍後再試");
+          } else if (status === window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+            setSearchResults([]);
+            setSearchError("搜尋請求被拒絕，請檢查 API 設定");
+          } else if (status === window.google.maps.places.PlacesServiceStatus.INVALID_REQUEST) {
+            setSearchResults([]);
+            setSearchError("搜尋請求無效，請檢查輸入內容");
+          } else {
+            setSearchResults([]);
+            setSearchError(`沒有找到這個地點`);
+          }
+        } catch (error) {
+          console.error("Error processing search results:", error);
+          setSearchResults([]);
+          setSearchError("處理搜尋結果時發生錯誤");
+        } finally {
+          setIsSearching(false);
+        }
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Error performing nearby search:", error);
+      setSearchResults([]);
+      setSearchError("搜尋時發生錯誤，請稍後再試");
+      setIsSearching(false);
+    }
+  }, [map, searchQuery]);
+
+  // 執行全球搜尋
+  const performGlobalSearch = useCallback(async () => {
+    if (!map || !placesServiceRef.current || !searchQuery.trim()) {
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+    
+    // 設置超時機制，防止搜尋永遠卡住
+    const timeoutId = setTimeout(() => {
+      setIsSearching(false);
+      setSearchError("搜尋逾時，請稍後再試");
+      setSearchResults([]);
+    }, 10000); // 10 秒超時
+
+    try {
+      const request: google.maps.places.PlaceSearchRequest = {
+        query: searchQuery,
+        type: ['book_store', 'cafe', 'library'],
+        language: 'zh-TW',
+      };
+
+      let callbackExecuted = false;
+      placesServiceRef.current.textSearch(request, (results, status) => {
+        if (callbackExecuted) return; // 防止重複執行
+        callbackExecuted = true;
+        clearTimeout(timeoutId);
+        
+        try {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+            if (results && results.length > 0) {
+              const formattedResults: SearchResult[] = results.slice(0, 10).map((place) => ({
+                placeId: place.place_id || '',
+                name: place.name || '',
+                address: place.formatted_address || '',
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0,
+                types: place.types || [],
+              }));
+              setSearchResults(formattedResults);
+              setSearchError(null);
+              // 調整地圖視窗以顯示所有結果
+              if (map) {
+                const bounds = new window.google.maps.LatLngBounds();
+                formattedResults.forEach((result) => {
+                  bounds.extend({ lat: result.lat, lng: result.lng });
+                });
+                map.fitBounds(bounds);
+              }
+            } else {
+              // OK 狀態但沒有結果
+              setSearchResults([]);
+              setSearchError("沒有找到符合條件的店家");
+            }
+          } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+            setSearchResults([]);
+            setSearchError("沒有找到符合條件的店家");
+          } else if (status === window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+            setSearchResults([]);
+            setSearchError("搜尋請求過於頻繁，請稍後再試");
+          } else if (status === window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+            setSearchResults([]);
+            setSearchError("搜尋請求被拒絕，請檢查 API 設定");
+          } else if (status === window.google.maps.places.PlacesServiceStatus.INVALID_REQUEST) {
+            setSearchResults([]);
+            setSearchError("搜尋請求無效，請檢查輸入內容");
+          } else {
+            setSearchResults([]);
+            setSearchError(`沒有找到這個地點`);
+          }
+        } catch (error) {
+          console.error("Error processing search results:", error);
+          setSearchResults([]);
+          setSearchError("處理搜尋結果時發生錯誤");
+        } finally {
+          setIsSearching(false);
+        }
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Error performing global search:", error);
+      setSearchResults([]);
+      setSearchError("搜尋時發生錯誤，請稍後再試");
+      setIsSearching(false);
+    }
+  }, [map, searchQuery]);
+
+  // 處理搜尋提交
+  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchMode === "nearby") {
+      performNearbySearch();
+    } else {
+      performGlobalSearch();
+    }
+  }, [searchMode, performNearbySearch, performGlobalSearch]);
+
+  // 清除搜尋結果
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedSearchResult(null);
+    setSearchError(null);
+  }, []);
 
   // 如果沒有 API Key，顯示提示
   if (!apiKey) {
@@ -422,10 +816,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
     );
   }
 
-  // 過濾位置
-  const filteredLocations = filterType === "all" 
-    ? locations 
-    : locations.filter(loc => loc.type === filterType);
 
   // 如果腳本載入錯誤，顯示錯誤訊息
   if (loadError) {
@@ -449,6 +839,68 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
 
   return (
     <div className="space-y-4">
+      {/* 搜尋框 */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex-1 min-w-[200px]">
+              {isLoaded ? (
+                <Autocomplete
+                  onLoad={(autocomplete) => {
+                    searchAutocompleteRef.current = autocomplete;
+                    if (autocomplete) {
+                      autocomplete.setFields(['place_id', 'geometry', 'name', 'formatted_address', 'types']);
+                      autocomplete.setComponentRestrictions({ country: 'tw' });
+                      autocomplete.setTypes(['book_store', 'cafe', 'library']);
+                    }
+                  }}
+                  onPlaceChanged={onPlaceSelected}
+                  options={{
+                    types: ['book_store', 'cafe', 'library'],
+                    componentRestrictions: { country: 'tw' },
+                    language: 'zh-TW',
+                  }}
+                >
+                  <input
+                    type="text"
+                    placeholder="搜尋書店、咖啡廳、圖書館... (輸入後從建議中選擇)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </Autocomplete>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="載入中..."
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-400"
+                />
+              )}
+            </div>
+            {searchResults.length > 0 && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                清除
+              </button>
+            )}
+          </div>
+          {searchResults.length > 0 && (
+            <div className="text-sm text-green-600 dark:text-green-400">
+              找到 {searchResults.length} 個結果
+            </div>
+          )}
+          {searchError && (
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+              {searchError}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 控制面板 */}
       <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div className="flex flex-wrap gap-2 items-center">
@@ -493,38 +945,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
               )}
             </button>
           )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setFilterType("all")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filterType === "all"
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-            }`}
-          >
-            全部
-          </button>
-          <button
-            onClick={() => setFilterType("bookstore")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filterType === "bookstore"
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-            }`}
-          >
-            📚 書店
-          </button>
-          <button
-            onClick={() => setFilterType("cafe")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filterType === "cafe"
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-            }`}
-          >
-            ☕ 咖啡廳
-          </button>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -603,7 +1023,7 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
             ))}
 
             {/* 顯示其他標記（書店、咖啡廳等） */}
-            {filteredLocations.map((location) => (
+            {locations.map((location) => (
               <Marker
                 key={location.id}
                 position={{ lat: location.lat, lng: location.lng }}
@@ -618,6 +1038,19 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
               />
             ))}
 
+            {/* 顯示搜尋結果標記 */}
+            {searchResults.map((result) => (
+              <Marker
+                key={result.placeId}
+                position={{ lat: result.lat, lng: result.lng }}
+                onClick={() => setSelectedSearchResult(result)}
+                icon={{
+                  url: "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png",
+                }}
+                title={result.name}
+              />
+            ))}
+
             {/* Hover 提示視窗（顯示名字和更新時間） */}
             {hoveredMemberLocation && !selectedMemberLocation && (
               <InfoWindow
@@ -627,10 +1060,10 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 }}
               >
                 <div className="p-2">
-                  <p className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
+                  <p className="font-semibold text-sm text-gray-900 mb-1">
                     {hoveredMemberLocation.userName}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-gray-700">
                     上次更新：{formatUpdateTime(hoveredMemberLocation.updatedAt)}
                   </p>
                 </div>
@@ -653,8 +1086,8 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                       />
                     )}
                     <div>
-                      <h3 className="font-semibold text-lg">{selectedMemberLocation.userName}</h3>
-                      <span className="text-xs text-gray-500">
+                      <h3 className="font-semibold text-lg text-gray-900">{selectedMemberLocation.userName}</h3>
+                      <span className="text-xs text-gray-700">
                         {selectedMemberLocation.role === "owner" ? "👑 群主" : 
                          selectedMemberLocation.role === "admin" ? "⭐ 管理員" : "👤 成員"}
                       </span>
@@ -663,34 +1096,34 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                   
                   {/* 地點名稱 */}
                   {selectedMemberLocation.placeName && (
-                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                    <p className="text-sm font-medium text-gray-900 mb-1">
                       📚 {selectedMemberLocation.placeName}
                     </p>
                   )}
                   
                   {/* 地址 */}
                   {selectedMemberLocation.address && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <p className="text-sm text-gray-700 mb-2">
                       📍 {selectedMemberLocation.address}
                     </p>
                   )}
 
                   {/* 預計讀到幾點 */}
                   {selectedMemberLocation.studyUntil && (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                    <p className="text-sm text-gray-800 mb-1">
                       ⏰ 預計讀到：{formatStudyUntil(selectedMemberLocation.studyUntil)}
                     </p>
                   )}
 
                   {/* 擁擠程度 */}
                   {selectedMemberLocation.crowdedness && (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                    <p className="text-sm text-gray-800 mb-1">
                       {formatCrowdedness(selectedMemberLocation.crowdedness)}
                     </p>
                   )}
 
                   {/* 設施 */}
-                  <div className="flex gap-3 text-sm text-gray-700 dark:text-gray-300 mb-2">
+                  <div className="flex gap-3 text-sm text-gray-800 mb-2">
                     {selectedMemberLocation.hasOutlet && (
                       <span className="flex items-center gap-1">
                         🔌 插座
@@ -703,7 +1136,7 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                     )}
                   </div>
 
-                  <p className="text-xs text-gray-500 border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
+                  <p className="text-xs text-gray-700 border-t border-gray-300 pt-2 mt-2">
                     更新時間：{new Date(selectedMemberLocation.updatedAt).toLocaleString("zh-TW")}
                   </p>
                 </div>
@@ -717,20 +1150,80 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                 onCloseClick={handleInfoWindowClose}
               >
                 <div className="p-2">
-                  <h3 className="font-semibold text-lg mb-1">{selectedLocation.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  <h3 className="font-semibold text-lg text-gray-900 mb-1">{selectedLocation.name}</h3>
+                  <p className="text-sm text-gray-700 mb-2">
                     {selectedLocation.address}
                   </p>
                   {selectedLocation.description && (
-                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                    <p className="text-sm text-gray-700">
                       {selectedLocation.description}
                     </p>
                   )}
                   <div className="mt-2">
-                    <span className="inline-block px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                    <span className="inline-block px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">
                       {selectedLocation.type === "bookstore" ? "📚 書店" : "☕ 咖啡廳"}
                     </span>
                   </div>
+                </div>
+              </InfoWindow>
+            )}
+
+            {/* 搜尋結果資訊視窗 */}
+            {selectedSearchResult && (
+              <InfoWindow
+                position={{ lat: selectedSearchResult.lat, lng: selectedSearchResult.lng }}
+                onCloseClick={() => setSelectedSearchResult(null)}
+              >
+                <div className="p-2 min-w-[250px] max-w-[300px]">
+                  <h3 className="font-semibold text-lg text-gray-900 mb-1">{selectedSearchResult.name}</h3>
+                  <p className="text-sm text-gray-700 mb-2">
+                    {selectedSearchResult.address}
+                  </p>
+                  {selectedSearchResult.types && selectedSearchResult.types.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1 mb-3">
+                      {selectedSearchResult.types.includes('book_store') && (
+                        <span className="inline-block px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">
+                          📚 書店
+                        </span>
+                      )}
+                      {selectedSearchResult.types.includes('cafe') && (
+                        <span className="inline-block px-2 py-1 text-xs rounded bg-green-100 text-green-800">
+                          ☕ 咖啡廳
+                        </span>
+                      )}
+                      {selectedSearchResult.types.includes('library') && (
+                        <span className="inline-block px-2 py-1 text-xs rounded bg-purple-100 text-purple-800">
+                          📖 圖書館
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* 收藏按鈕 */}
+                  <button
+                    onClick={() => {
+                      const isFavorited = favoritePlaces.has(selectedSearchResult.placeId);
+                      if (isFavorited) {
+                        handleRemoveFavorite(selectedSearchResult.placeId);
+                      } else {
+                        handleAddFavorite({
+                          placeId: selectedSearchResult.placeId,
+                          name: selectedSearchResult.name,
+                          address: selectedSearchResult.address,
+                          lat: selectedSearchResult.lat,
+                          lng: selectedSearchResult.lng,
+                          types: selectedSearchResult.types,
+                        });
+                      }
+                    }}
+                    disabled={isFavoriting}
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      favoritePlaces.has(selectedSearchResult.placeId)
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {isFavoriting ? '處理中...' : favoritePlaces.has(selectedSearchResult.placeId) ? '❤️ 已收藏' : '⭐ 加入收藏'}
+                  </button>
                 </div>
               </InfoWindow>
             )}
@@ -738,11 +1231,11 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       </div>
 
       {/* 位置列表（可選） */}
-      {filteredLocations.length > 0 && (
+      {locations.length > 0 && (
         <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <h3 className="font-semibold mb-3">位置列表 ({filteredLocations.length})</h3>
+          <h3 className="font-semibold mb-3">位置列表 ({locations.length})</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredLocations.map((location) => (
+            {locations.map((location) => (
               <div
                 key={location.id}
                 className="p-3 bg-white dark:bg-gray-700 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
@@ -829,7 +1322,7 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       )}
 
       {/* 空狀態 */}
-      {filteredLocations.length === 0 && memberLocations.length === 0 && (
+      {locations.length === 0 && memberLocations.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p className="text-lg mb-2">暫無位置標記</p>
           <p className="text-sm mb-4">點擊「發布位置」按鈕來分享您的位置</p>
@@ -845,6 +1338,8 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
         }}
         onSubmit={handleSubmitLocation}
         isSubmitting={isUpdatingLocation}
+        isScriptLoaded={isLoaded}
+        currentGroupId={groupId}
       />
     </div>
   );

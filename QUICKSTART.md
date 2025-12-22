@@ -2,13 +2,15 @@
 
 Get your application running in 5 minutes!
 
+> **Important:** This project uses **Yarn** exclusively. Please do not use npm.
+
 ## 🚀 Minimal Setup (Development)
 
 ### Step 1: Install Dependencies
 
 ```bash
 cd WP_FinalProject
-npm install
+yarn install
 ```
 
 ### Step 2: Set Up Environment
@@ -47,7 +49,7 @@ sudo systemctl start mongodb
 ### Step 4: Run the App
 
 ```bash
-npm run dev
+yarn dev
 ```
 
 Visit: [http://localhost:3000](http://localhost:3000)
@@ -109,7 +111,7 @@ sudo systemctl status mongodb  # Linux
 **Port already in use?**
 ```bash
 # Change port
-npm run dev -- -p 3001
+yarn dev -p 3001
 # Update NEXTAUTH_URL to http://localhost:3001
 ```
 

@@ -16,22 +16,25 @@ A modern full-stack web application built with **Next.js 14**, **Tailwind CSS**,
 Before you begin, ensure you have the following installed:
 
 - **Node.js** (v18 or higher)
-- **npm** or **yarn** or **pnpm**
+- **Yarn** (v1.22 or higher) - This project uses Yarn for package management
 - **MongoDB** (local installation or MongoDB Atlas account)
 - **Google OAuth credentials** (optional, for Google sign-in)
 - **GitHub OAuth credentials** (optional, for GitHub sign-in)
+
+> **Important:** This project uses **Yarn** exclusively. Please do not use npm or pnpm to avoid dependency conflicts.
 
 ## 🛠️ Installation
 
 ### 1. Install Dependencies
 
 ```bash
-npm install
-# or
 yarn install
-# or
-pnpm install
 ```
+
+> **Note:** If you don't have Yarn installed, you can install it with:
+> ```bash
+> npm install -g yarn
+> ```
 
 ### 2. Set Up MongoDB
 
@@ -113,6 +116,14 @@ Generate a secure secret for NextAuth:
 openssl rand -base64 32
 ```
 
+### 5. Run the Development Server
+
+```bash
+yarn dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000) to see your app!
+
 Copy the output and paste it as the `NEXTAUTH_SECRET` value in `.env.local`.
 
 ## 🔑 OAuth Setup
@@ -169,11 +180,7 @@ For production environment setup, see [GOOGLE_CALENDAR_PRODUCTION_SETUP.md](./GO
 ### Development Mode
 
 ```bash
-npm run dev
-# or
 yarn dev
-# or
-pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -181,8 +188,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Production Build
 
 ```bash
-npm run build
-npm run start
+yarn build
+yarn start
 ```
 
 ## 📁 Project Structure
@@ -221,10 +228,13 @@ WP_FinalProject/
 
 ## 🎨 Available Scripts
 
-- `npm run dev` - Start development server
-- `npm run build` - Create production build
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+- `yarn dev` - Start development server
+- `yarn build` - Create production build
+- `yarn start` - Start production server
+- `yarn lint` - Run ESLint
+- `yarn migrate-db` - Run database migration
+- `yarn inspect-db` - Inspect database contents
+- `yarn cleanup-db` - Clean up database
 
 ## 🔒 Authentication Flow
 
@@ -279,7 +289,7 @@ WP_FinalProject/
 ### Build Errors
 
 - Delete `.next` folder and `node_modules`
-- Run `npm install` again
+- Run `yarn install` again
 - Ensure all environment variables are set
 
 ## 📝 Next Steps

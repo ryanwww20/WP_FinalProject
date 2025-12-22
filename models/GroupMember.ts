@@ -20,6 +20,8 @@ export interface IGroupMember extends Document {
     address?: string;
     // Additional study location information
     placeName?: string; // 在哪裡讀書（地點名稱）
+    placeId?: string; // Google Places ID
+    placeTypes?: string[]; // 地標類型（book_store, cafe, library）
     studyUntil?: Date; // 預計讀到幾點
     crowdedness?: 'empty' | 'quiet' | 'moderate' | 'busy' | 'very-busy'; // 店內人是否壅擠
     hasOutlet?: boolean; // 是否有插座
@@ -71,6 +73,14 @@ const GroupMemberSchema: Schema<IGroupMember> = new Schema(
       },
       placeName: {
         type: String,
+        required: false,
+      },
+      placeId: {
+        type: String,
+        required: false,
+      },
+      placeTypes: {
+        type: [String],
         required: false,
       },
       studyUntil: {
