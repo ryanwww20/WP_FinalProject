@@ -1,81 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-
-type TimerMode = "work" | "shortBreak" | "longBreak";
-
-const TIMER_SETTINGS = {
-  work: 25 * 60, // 25 minutes
-  shortBreak: 5 * 60, // 5 minutes
-  longBreak: 15 * 60, // 15 minutes
-};
+import { usePomodoroTimer, TIMER_SETTINGS } from "./PomodoroTimerContext";
 
 interface PomodoroTimerProps {
   compact?: boolean; // 是否使用紧凑模式（用于 Laptop 屏幕）
 }
 
 export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
-  // Pomodoro Timer State
-  const [timerMode, setTimerMode] = useState<TimerMode>("work");
-  const [timeLeft, setTimeLeft] = useState(TIMER_SETTINGS.work);
-  const [isRunning, setIsRunning] = useState(false);
-  const [completedPomodoros, setCompletedPomodoros] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Pomodoro Timer Effect
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      // Timer completed
-      if (timerMode === "work") {
-        setCompletedPomodoros((prev) => prev + 1);
-        // After 4 pomodoros, take a long break
-        if ((completedPomodoros + 1) % 4 === 0) {
-          setTimerMode("longBreak");
-          setTimeLeft(TIMER_SETTINGS.longBreak);
-        } else {
-          setTimerMode("shortBreak");
-          setTimeLeft(TIMER_SETTINGS.shortBreak);
-        }
-      } else {
-        setTimerMode("work");
-        setTimeLeft(TIMER_SETTINGS.work);
-      }
-      setIsRunning(false);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, timeLeft, timerMode, completedPomodoros]);
-
-  // Timer controls
-  const toggleTimer = useCallback(() => {
-    setIsRunning((prev) => !prev);
-  }, []);
-
-  const resetTimer = useCallback(() => {
-    setIsRunning(false);
-    setTimeLeft(TIMER_SETTINGS[timerMode]);
-  }, [timerMode]);
-
-  const switchMode = useCallback((mode: TimerMode) => {
-    setIsRunning(false);
-    setTimerMode(mode);
-    setTimeLeft(TIMER_SETTINGS[mode]);
-  }, []);
-
-  // Format time as MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  const {
+    timerMode,
+    timeLeft,
+    isRunning,
+    completedPomodoros,
+    toggleTimer,
+    resetTimer,
+    switchMode,
+    formatTime,
+  } = usePomodoroTimer();
 
   if (compact) {
     // 紧凑模式 - 用于 Laptop 屏幕
