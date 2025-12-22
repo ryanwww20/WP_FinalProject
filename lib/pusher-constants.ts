@@ -60,12 +60,12 @@ export function getGroupChannel(groupId: string): string {
 export const PUSHER_EVENTS = {
   /** New message event - fired when a new message is sent to a group */
   NEW_MESSAGE: 'new-message',
-  
+  /** Location updated event - fired when a member updates their location */
+  LOCATION_UPDATED: 'location-updated',
   /** Focus session events - for real-time study tracking */
   FOCUS_SESSION_STARTED: 'focus-session-started',
   FOCUS_SESSION_COMPLETED: 'focus-session-completed',
   FOCUS_SESSION_STATS_UPDATED: 'focus-session-stats-updated',
-  
   // Future events can be added here:
   // MEMBER_JOINED: 'member-joined',
   // MEMBER_LEFT: 'member-left',

@@ -56,6 +56,47 @@ export default function Dashboard() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [isApiSyncing, setIsApiSyncing] = useState(false);
+  const fetchTodayDataRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Define fetchTodayData early so it can be used in other callbacks
+  const fetchTodayData = useCallback(async () => {
+    try {
+      const now = new Date();
+      const startDate = startOfDay(now).toISOString();
+      const endDate = endOfDay(now).toISOString();
+
+      const [eventsResponse, todosResponse] = await Promise.all([
+        fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/todos?startDate=${startDate}&endDate=${endDate}`),
+      ]);
+
+      if (eventsResponse.ok) {
+        const data = await eventsResponse.json();
+        const events = data.events || [];
+        events.sort((a: CalendarEvent, b: CalendarEvent) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+        setTodaysEvents(events);
+      }
+
+      if (todosResponse.ok) {
+        const todoData = await todosResponse.json();
+        const todos: TodoItem[] = (todoData.todos || []).sort(
+          (a: TodoItem, b: TodoItem) =>
+            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        );
+        setTodaysTodos(todos);
+      }
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  // Update ref synchronously - fetchTodayData is stable (empty deps) and defined above
+  // This must be synchronous to ensure ref is available when useEffect runs
+  fetchTodayDataRef.current = fetchTodayData;
 
   useEffect(() => {
     if (!session?.user?.userId) return;
@@ -67,12 +108,12 @@ export default function Dashboard() {
       const nextMidnight = startOfDay(addDays(now, 1));
       const delay = nextMidnight.getTime() - now.getTime();
       midnightTimeout = setTimeout(() => {
-        fetchTodayData();
+        fetchTodayDataRef.current?.();
         scheduleMidnightRefresh();
       }, delay);
     };
 
-    fetchTodayData();
+    fetchTodayDataRef.current?.();
     scheduleMidnightRefresh();
     checkExistingSession(); // Check for active focus session on mount
 
@@ -92,7 +133,7 @@ export default function Dashboard() {
           setSessionStartTime(new Date(data.session.startedAt));
           const elapsedSeconds = Math.floor((Date.now() - new Date(data.session.startedAt).getTime()) / 1000);
           const remainingSeconds = (data.session.targetDuration || 25) * 60 - elapsedSeconds;
-          
+
           if (remainingSeconds > 0) {
             setTimeLeft(remainingSeconds);
             setIsRunning(true);
@@ -104,6 +145,40 @@ export default function Dashboard() {
       console.error('Error checking existing session:', error);
     }
   };
+
+  // Stop focus session (API integration) - defined early for use in useEffect
+  const stopFocusSession = useCallback(async () => {
+    if (isApiSyncing || !sessionStartTime) return;
+
+    setIsApiSyncing(true);
+    try {
+      console.log('[Dashboard] Stopping focus session...');
+      const response = await fetch('/api/focus-session', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[Dashboard] Session completed: ${data.studyTime} minutes studied`);
+        setSessionStartTime(null);
+
+        // Pusher now handles real-time updates to all group components
+        // No need for browser events anymore
+
+        // Refresh today's data to show updated stats
+        fetchTodayDataRef.current?.();
+      } else {
+        const error = await response.json();
+        console.error('Failed to stop session:', error);
+      }
+    } catch (error) {
+      console.error('Error stopping session:', error);
+    } finally {
+      setIsApiSyncing(false);
+    }
+  }, [isApiSyncing, sessionStartTime]);
 
   // Pomodoro Timer Effect
   useEffect(() => {
@@ -138,47 +213,12 @@ export default function Dashboard() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, timeLeft, timerMode, completedPomodoros]);
-
-  const fetchTodayData = useCallback(async () => {
-    try {
-      const now = new Date();
-      const startDate = startOfDay(now).toISOString();
-      const endDate = endOfDay(now).toISOString();
-
-      const [eventsResponse, todosResponse] = await Promise.all([
-        fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`),
-        fetch(`/api/todos?startDate=${startDate}&endDate=${endDate}`),
-      ]);
-
-      if (eventsResponse.ok) {
-        const data = await eventsResponse.json();
-        const events = data.events || [];
-        events.sort((a: CalendarEvent, b: CalendarEvent) => 
-          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-        );
-        setTodaysEvents(events);
-      }
-
-      if (todosResponse.ok) {
-        const todoData = await todosResponse.json();
-        const todos: TodoItem[] = (todoData.todos || []).sort(
-          (a: TodoItem, b: TodoItem) =>
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-        );
-        setTodaysTodos(todos);
-      }
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }, [isRunning, timeLeft, timerMode, completedPomodoros, stopFocusSession]);
 
   // Start focus session (API integration)
   const startFocusSession = useCallback(async () => {
     if (isApiSyncing) return;
-    
+
     setIsApiSyncing(true);
     try {
       console.log('[Dashboard] Starting focus session...');
@@ -192,7 +232,7 @@ export default function Dashboard() {
       });
 
       console.log('[Dashboard] Focus session API response:', response.status);
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('[Dashboard] Focus session started:', data);
@@ -210,40 +250,6 @@ export default function Dashboard() {
       setIsApiSyncing(false);
     }
   }, [isApiSyncing]);
-
-  // Stop focus session (API integration)
-  const stopFocusSession = useCallback(async () => {
-    if (isApiSyncing || !sessionStartTime) return;
-    
-    setIsApiSyncing(true);
-    try {
-      console.log('[Dashboard] Stopping focus session...');
-      const response = await fetch('/api/focus-session', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stop' }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`[Dashboard] Session completed: ${data.studyTime} minutes studied`);
-        setSessionStartTime(null);
-        
-        // Pusher now handles real-time updates to all group components
-        // No need for browser events anymore
-        
-        // Refresh today's data to show updated stats
-        fetchTodayData();
-      } else {
-        const error = await response.json();
-        console.error('Failed to stop session:', error);
-      }
-    } catch (error) {
-      console.error('Error stopping session:', error);
-    } finally {
-      setIsApiSyncing(false);
-    }
-  }, [isApiSyncing, sessionStartTime, fetchTodayData]);
 
   // Timer controls
   const toggleTimer = useCallback(() => {
@@ -318,10 +324,10 @@ export default function Dashboard() {
   return (
     <>
       {/* Focus Mode Overlay - Always rendered, controlled by CSS */}
-      <div 
+      <div
         className={`fixed inset-0 bg-gray-950 z-40 flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
-          isFocusMode 
-            ? 'opacity-100 pointer-events-auto' 
+          isFocusMode
+            ? 'opacity-100 pointer-events-auto'
             : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -332,11 +338,11 @@ export default function Dashboard() {
             backgroundSize: '40px 40px'
           }} />
       </div>
-      
+
         {/* Main Content */}
         <div className={`relative z-10 text-center transition-all duration-700 ease-out ${
-          isFocusMode 
-            ? 'opacity-100 scale-100 translate-y-0' 
+          isFocusMode
+            ? 'opacity-100 scale-100 translate-y-0'
             : 'opacity-0 scale-95 translate-y-8'
         }`}>
           {/* Focus Mode Label */}
@@ -411,11 +417,11 @@ export default function Dashboard() {
           Press <span className="text-gray-400">Pause</span> to exit focus mode
         </div>
           </div>
-          
+
       {/* Main Dashboard Content */}
       <div className={`w-full max-w-6xl mx-auto space-y-8 p-4 transition-all duration-700 ease-in-out ${
-        isFocusMode 
-          ? 'opacity-0 scale-95 pointer-events-none' 
+        isFocusMode
+          ? 'opacity-0 scale-95 pointer-events-none'
           : 'opacity-100 scale-100 pointer-events-auto'
       }`}>
         {/* Header Section */}
@@ -428,7 +434,7 @@ export default function Dashboard() {
               Here's what's happening today, {format(new Date(), "MMMM do")}
             </p>
           </div>
-          <Link 
+          <Link
             href="/calendar"
             className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow transition-colors flex items-center gap-2 text-sm font-medium"
           >
@@ -445,7 +451,7 @@ export default function Dashboard() {
             <div className="bg-card rounded-xl shadow-sm border border-border p-8">
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-foreground mb-6">Pomodoro Timer</h2>
-                
+
                 {/* Mode Selector */}
                 <div className="flex justify-center gap-2 mb-8">
                   <button

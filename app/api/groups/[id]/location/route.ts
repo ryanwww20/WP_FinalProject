@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import GroupMember from '@/models/GroupMember';
 import mongoose from 'mongoose';
+import { publishToChannel } from '@/lib/pusher';
+import { getGroupChannel, PUSHER_EVENTS } from '@/lib/pusher-constants';
+import type { LocationUpdatedEvent } from '@/lib/pusher-types';
 
 // PUT /api/groups/[id]/location - 更新當前使用者在群組中的位置
 export async function PUT(
@@ -31,7 +34,16 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { lat, lng, address } = body;
+    const { 
+      lat, 
+      lng, 
+      address, 
+      placeName, 
+      studyUntil, 
+      crowdedness, 
+      hasOutlet, 
+      hasWifi 
+    } = body;
 
     // 驗證輸入
     if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -44,6 +56,14 @@ export async function PUT(
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return NextResponse.json(
         { error: 'Invalid coordinates. lat must be between -90 and 90, lng must be between -180 and 180.' },
+        { status: 400 }
+      );
+    }
+
+    // 驗證擁擠程度
+    if (crowdedness && !['empty', 'quiet', 'moderate', 'busy', 'very-busy'].includes(crowdedness)) {
+      return NextResponse.json(
+        { error: 'Invalid crowdedness value. Must be one of: empty, quiet, moderate, busy, very-busy' },
         { status: 400 }
       );
     }
@@ -66,10 +86,48 @@ export async function PUT(
       lat,
       lng,
       address: address || undefined,
+      placeName: placeName || undefined,
+      studyUntil: studyUntil ? new Date(studyUntil) : undefined,
+      crowdedness: crowdedness || undefined,
+      hasOutlet: hasOutlet !== undefined ? Boolean(hasOutlet) : undefined,
+      hasWifi: hasWifi !== undefined ? Boolean(hasWifi) : undefined,
       updatedAt: new Date(),
     };
 
     await membership.save();
+
+    // 獲取使用者資訊
+    const User = (await import('@/models/User')).default;
+    const user = await User.findOne({ userId: session.user.userId })
+      .select('name image')
+      .lean();
+
+    // 發送 Pusher 事件通知群組其他成員
+    try {
+      const channel = getGroupChannel(params.id);
+      const locationEvent: LocationUpdatedEvent = {
+        userId: session.user.userId,
+        userName: user?.name || 'Unknown',
+        userImage: user?.image || undefined,
+        groupId: params.id,
+        location: {
+          lat: membership.location.lat,
+          lng: membership.location.lng,
+          address: membership.location.address || undefined,
+          placeName: membership.location.placeName || undefined,
+          studyUntil: membership.location.studyUntil?.toISOString() || undefined,
+          crowdedness: membership.location.crowdedness || undefined,
+          hasOutlet: membership.location.hasOutlet,
+          hasWifi: membership.location.hasWifi,
+          updatedAt: membership.location.updatedAt.toISOString(),
+        },
+      };
+
+      await publishToChannel(channel, PUSHER_EVENTS.LOCATION_UPDATED, locationEvent);
+    } catch (error) {
+      // 記錄錯誤但不影響位置更新
+      console.error('❌ [API] Error publishing location update to Pusher:', error);
+    }
 
     return NextResponse.json({
       success: true,
@@ -153,6 +211,11 @@ export async function GET(
           lat: member.location.lat,
           lng: member.location.lng,
           address: member.location.address || '',
+          placeName: member.location.placeName || undefined,
+          studyUntil: member.location.studyUntil || undefined,
+          crowdedness: member.location.crowdedness || undefined,
+          hasOutlet: member.location.hasOutlet,
+          hasWifi: member.location.hasWifi,
           updatedAt: member.location.updatedAt,
         };
       });

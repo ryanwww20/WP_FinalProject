@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, startOfDay, addDays, addHours } from "date-fns";
 import EventFormModal from "./EventFormModal";
+import GoogleCalendarSync from "@/components/GoogleCalendarSync";
 import type { IEvent } from "@/models/Event";
 import type { ITodo } from "@/models/Todo";
 
@@ -611,9 +612,13 @@ export default function CalendarClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
-      <div className="max-w-7xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Google Calendar Sync Component */}
+        <GoogleCalendarSync />
+        
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center gap-4">
             <button
               onClick={handlePrevious}
@@ -741,6 +746,7 @@ export default function CalendarClient() {
             event={selectedEvent}
           />
         )}
+        </div>
       </div>
     </div>
   );
