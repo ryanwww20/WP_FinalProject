@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [todaysEvents, setTodaysEvents] = useState<CalendarEvent[]>([]);
   const [todaysTodos, setTodaysTodos] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [studyingCount, setStudyingCount] = useState<number>(0);
 
   const fetchTodayData = useCallback(async () => {
     try {
@@ -74,6 +75,19 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Fetch studying count from all groups
+  const fetchStudyingCount = useCallback(async () => {
+    try {
+      const response = await fetch('/api/groups/studying-count');
+      if (response.ok) {
+        const data = await response.json();
+        setStudyingCount(data.studyingCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching studying count:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!session?.user?.userId) return;
 
@@ -90,12 +104,17 @@ export default function Dashboard() {
     };
 
     fetchTodayData();
+    fetchStudyingCount();
     scheduleMidnightRefresh();
+
+    // Refresh studying count every 30 seconds
+    const studyingInterval = setInterval(fetchStudyingCount, 30000);
 
     return () => {
       clearTimeout(midnightTimeout);
+      clearInterval(studyingInterval);
     };
-  }, [session?.user?.userId, fetchTodayData]);
+  }, [session?.user?.userId, fetchTodayData, fetchStudyingCount]);
 
   if (!session) return null;
 
@@ -270,6 +289,29 @@ export default function Dashboard() {
                 {/* Label */}
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">
                   Events Today
+                </p>
+              </div>
+
+              {/* Studying Now */}
+              <div className="bg-gradient-to-br from-card to-card/80 p-4 rounded-xl shadow-md border border-border/50 aspect-square flex flex-col items-center justify-center w-full hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                {/* Icon with background */}
+                <div className="relative mb-3">
+                  <div className="absolute inset-0 bg-green-500/20 rounded-full blur-md"></div>
+                  <div className="relative p-2.5 bg-green-500/10 text-green-500 rounded-full">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Number - Large and prominent */}
+                <h3 className="text-4xl font-extrabold text-foreground mb-2 tabular-nums">
+                  {studyingCount}
+                </h3>
+                
+                {/* Label */}
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">
+                  Studying Now
                 </p>
               </div>
             </div>
