@@ -139,19 +139,23 @@ export default function Dashboard() {
               </div>
 
         {/* Schedule & Stats */}
-        <div className="grid md:grid-cols-1 gap-6">
-          <div className="space-y-4">
-            <div className="sticky top-20 space-y-6">
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Left Column - Schedule */}
+          <div className="md:col-span-2 space-y-4">
+            <div className="sticky top-20">
               {/* Today's Schedule */}
               <div>
-                <h2 className="text-lg font-semibold text-foreground mb-3">Today's Schedule</h2>
-                <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+                <h2 className="text-2xl font-semibold text-foreground mb-4">Today's Schedule</h2>
+                <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden max-h-[400px] overflow-y-auto">
                   {loading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <div className="flex items-center justify-center h-40">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
+                        <p className="text-sm text-muted-foreground">Loading schedule...</p>
+                      </div>
                     </div>
                   ) : scheduleItems.length > 0 ? (
-                    <div className="divide-y divide-border">
+                    <div className="divide-y divide-border/50">
                       {scheduleItems.map((item) => {
                         const itemEnd = item.endTime
                           ? new Date(item.endTime)
@@ -163,27 +167,65 @@ export default function Dashboard() {
                         return (
                           <div
                             key={`${item.type}-${item._id}`}
-                            className={`p-3 hover:bg-muted/50 transition-colors ${
-                              isPast ? "opacity-50" : ""
+                            className={`p-5 hover:bg-muted/60 transition-all duration-200 ${
+                              isPast ? "opacity-60 bg-muted/20" : "bg-card"
                             }`}
                           >
-                            <div className="flex items-start gap-3">
-                              <span className="text-xs font-mono text-muted-foreground min-w-[40px]">
-                                {format(new Date(item.startTime), "HH:mm")}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium truncate ${isPast ? "text-muted-foreground" : "text-foreground"}`}>
-                                  {item.title}
-                                </p>
-                                <span
-                                  className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    item.type === "event"
-                                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200"
-                                      : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-200"
-                                  }`}
-                                >
-                                  {item.type === "event" ? "Event" : "Todo"}
+                            <div className="flex items-start gap-5">
+                              {/* Time Display */}
+                              <div className="flex flex-col items-center min-w-[60px]">
+                                <span className={`text-base font-bold font-mono ${
+                                  isPast ? "text-muted-foreground" : "text-primary"
+                                }`}>
+                                  {format(new Date(item.startTime), "HH:mm")}
                                 </span>
+                                {item.endTime && item.startTime !== item.endTime && (
+                                  <span className="text-xs text-muted-foreground mt-0.5">
+                                    {format(new Date(item.endTime), "HH:mm")}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {/* Icon */}
+                                  {item.type === "event" ? (
+                                    <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-5 h-5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  )}
+                                  <p className={`text-lg font-semibold ${isPast ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                                    {item.title}
+                                  </p>
+                                </div>
+                                
+                                {/* Badge and Description */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${
+                                      item.type === "event"
+                                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                                        : "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
+                                    }`}
+                                  >
+                                    {item.type === "event" ? "Event" : "Todo"}
+                                  </span>
+                                  {item.description && (
+                                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                      {item.description}
+                                    </span>
+                                  )}
+                                  {item.type === "todo" && item.completed && (
+                                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                      ✓ Completed
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -191,62 +233,32 @@ export default function Dashboard() {
                       })}
                     </div>
                   ) : (
-                    <div className="p-6 text-center">
-                      <p className="text-sm text-muted-foreground">No schedule for today</p>
+                    <div className="p-8 text-center">
+                      <svg className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-base font-medium text-muted-foreground">No schedule for today</p>
+                      <p className="text-sm text-muted-foreground/70 mt-1">Add events or todos to see them here</p>
                     </div>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Overview Section */}
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Overview</h3>
-                <div className="space-y-3">
-                  {/* Events Today */}
-                  <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Events Today</p>
-                        <h3 className="text-xl font-bold text-foreground">{todaysEvents.length}</h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Remaining */}
-                  <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2.5 bg-secondary/10 text-secondary rounded-lg">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Remaining</p>
-                        <h3 className="text-xl font-bold text-foreground">{upcomingEventsCount}</h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tasks */}
-                  <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Tasks</p>
-                        <h3 className="text-xl font-bold text-foreground">{todaysTodos.length}</h3>
-                      </div>
-                    </div>
-                  </div>
+          {/* Right Column - Overview */}
+          <div className="md:col-span-1">
+            <h3 className="text-2xl font-semibold text-foreground mb-4">Overview</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {/* Events Today */}
+              <div className="bg-card p-4 rounded-xl shadow-sm aspect-square flex flex-col items-center justify-center">
+                <div className="p-2 bg-primary/10 text-primary rounded-lg mb-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
                 </div>
+                <p className="text-xs text-muted-foreground mb-1">Events Today</p>
+                <h3 className="text-2xl font-bold text-foreground">{todaysEvents.length}</h3>
               </div>
             </div>
           </div>
