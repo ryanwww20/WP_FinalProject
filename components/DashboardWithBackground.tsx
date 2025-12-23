@@ -184,8 +184,8 @@ export default function DashboardWithBackground() {
           </div>
 
           {/* Navigation Bar inside Monitor */}
-          <div className="flex-shrink-0 border-b border-border/50">
-            <div className="transform scale-[0.55] origin-top-left w-[182%]">
+          <div className="flex-shrink-0 border-b border-border/50 h-10 overflow-hidden">
+            <div className="transform scale-[0.55] origin-top-left w-[182%] h-fit">
               <Navbar />
             </div>
           </div>
