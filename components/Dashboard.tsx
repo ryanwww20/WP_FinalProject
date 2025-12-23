@@ -139,9 +139,9 @@ export default function Dashboard() {
               </div>
 
         {/* Schedule & Stats */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-5 gap-6">
           {/* Left Column - Schedule */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-4 space-y-4">
             <div className="sticky top-20">
               {/* Today's Schedule */}
               <div>
@@ -247,18 +247,30 @@ export default function Dashboard() {
           </div>
 
           {/* Right Column - Overview */}
-          <div className="md:col-span-1">
-            <h3 className="text-2xl font-semibold text-foreground mb-4">Overview</h3>
+          <div className="md:col-span-1 max-w-[200px]">
+            <h3 className="text-base font-semibold text-foreground mb-3 uppercase tracking-wider">Overview</h3>
             <div className="grid grid-cols-1 gap-3">
               {/* Events Today */}
-              <div className="bg-card p-4 rounded-xl shadow-sm aspect-square flex flex-col items-center justify-center">
-                <div className="p-2 bg-primary/10 text-primary rounded-lg mb-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+              <div className="bg-gradient-to-br from-card to-card/80 p-4 rounded-xl shadow-md border border-border/50 aspect-square flex flex-col items-center justify-center w-full hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                {/* Icon with background */}
+                <div className="relative mb-3">
+                  <div className="absolute inset-0 bg-primary/20 rounded-full blur-md"></div>
+                  <div className="relative p-2.5 bg-primary/10 text-primary rounded-full">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mb-1">Events Today</p>
-                <h3 className="text-2xl font-bold text-foreground">{todaysEvents.length}</h3>
+                
+                {/* Number - Large and prominent */}
+                <h3 className="text-4xl font-extrabold text-foreground mb-2 tabular-nums">
+                  {todaysEvents.length}
+                </h3>
+                
+                {/* Label */}
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">
+                  Events Today
+                </p>
               </div>
             </div>
           </div>
