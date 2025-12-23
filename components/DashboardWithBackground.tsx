@@ -29,11 +29,10 @@ export default function DashboardWithBackground() {
         if (response.ok) {
           const data = await response.json();
           const fetchedTodos: ITodo[] = data.todos || [];
-          // Sort by dueDate, incomplete first, then by date
-          const sortedTodos = fetchedTodos.sort((a, b) => {
-            if (a.completed !== b.completed) {
-              return a.completed ? 1 : -1;
-            }
+          // Filter out completed todos
+          const incompleteTodos = fetchedTodos.filter(todo => !todo.completed);
+          // Sort by dueDate
+          const sortedTodos = incompleteTodos.sort((a, b) => {
             return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
           });
           // Limit to first 6 items for notebook display
@@ -184,8 +183,8 @@ export default function DashboardWithBackground() {
           </div>
 
           {/* Navigation Bar inside Monitor */}
-          <div className="flex-shrink-0 border-b border-border/50">
-            <div className="transform scale-[0.55] origin-top-left w-[182%]">
+          <div className="flex-shrink-0 border-b border-border/50 h-10 overflow-hidden">
+            <div className="transform scale-[0.55] origin-top-left w-[182%] h-fit">
               <Navbar />
             </div>
           </div>
