@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       .lean();
 
     // Get unique user IDs
-    const userIds = [...new Set(allMembers.map((m: any) => m.userId))];
+    const userIds = Array.from(new Set(allMembers.map((m: any) => m.userId)));
 
     if (userIds.length === 0) {
       return NextResponse.json({ 
