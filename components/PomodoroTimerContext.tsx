@@ -302,6 +302,14 @@ export function PomodoroTimerProvider({ children }: { children: ReactNode }) {
     }
   }, [isApiSyncing]);
 
+  // Stop focus session when timer stops (regardless of mode)
+  useEffect(() => {
+    if (!isRunning && sessionStartTime) {
+      // Timer stopped - stop focus session if it's active
+      stopFocusSession();
+    }
+  }, [isRunning, sessionStartTime, stopFocusSession]);
+
   // Handle timer completion
   useEffect(() => {
     if (timeLeft === 0 && isRunning) {
@@ -346,41 +354,31 @@ export function PomodoroTimerProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // Pausing timer - clear start time
+        // The useEffect will handle stopping the focus session
         setStartTime(null);
-        
-        // If pausing work mode, stop API session
-        if (timerMode === 'work' && sessionStartTime) {
-          stopFocusSession();
-        }
       }
       return newRunning;
     });
-  }, [timeLeft, timerMode, sessionStartTime, startFocusSession, stopFocusSession]);
+  }, [timeLeft, timerMode, sessionStartTime, startFocusSession]);
 
   const resetTimer = useCallback(() => {
-    if (isRunning && timerMode === 'work' && sessionStartTime) {
-      // Stop API session when resetting active work timer
-      stopFocusSession();
-    }
     setIsRunning(false);
     setStartTime(null);
+    // The useEffect will handle stopping the focus session when isRunning becomes false
     const resetTime = TIMER_SETTINGS[timerMode];
     setTimeLeft(resetTime);
     setInitialTimeLeft(resetTime);
-  }, [timerMode, isRunning, sessionStartTime, stopFocusSession]);
+  }, [timerMode]);
 
   const switchMode = useCallback((mode: TimerMode) => {
-    if (isRunning && timerMode === 'work' && sessionStartTime) {
-      // Stop API session when switching modes
-      stopFocusSession();
-    }
     setIsRunning(false);
     setStartTime(null);
+    // The useEffect will handle stopping the focus session when isRunning becomes false
     setTimerMode(mode);
     const newTime = TIMER_SETTINGS[mode];
     setTimeLeft(newTime);
     setInitialTimeLeft(newTime);
-  }, [isRunning, timerMode, sessionStartTime, stopFocusSession]);
+  }, []);
 
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
