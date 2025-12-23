@@ -69,18 +69,29 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
           </div>
 
           {/* Controls */}
-          <div className="relative flex justify-center w-full">
-            <div className="w-24 h-9 mt-2 rounded-lg bg-[#e3e2e2] top-0 left-0 right-0 bottom-0"></div>
-            <button
-              onClick={toggleTimer}
-              className={`w-24 h-10 rounded-lg flex items-center justify-center absolute text-[16px] font-bold transition-all] ${
-                isRunning
-                  ? "bg-orange-400 hover:bg-orange-400 text-white mt-1"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              }`}
-            >
-              {isRunning ? "Pause" : "Start"}
-            </button>
+          <div className="flex items-center justify-center gap-2 w-full">
+            <div className="relative">
+              <div className="w-24 h-9 rounded-lg bg-[#e3e2e2]"></div>
+              <button
+                onClick={toggleTimer}
+                className={`w-24 h-10 rounded-lg flex items-center justify-center absolute top-0 left-0 text-[16px] font-bold transition-all ${
+                  isRunning
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                }`}
+              >
+                {isRunning ? "Pause" : "Start"}
+              </button>
+            </div>
+            <div className="relative">
+              <div className="w-24 h-9 rounded-lg bg-transparent"></div>
+              <button
+                onClick={resetTimer}
+                className="w-24 h-10 rounded-lg flex items-center justify-center absolute top-0 left-0 text-ext-primary-foreground[16px] text-muted-foreground font-bold bg-transparent hover:bg-primary/90 transition-all"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
       </div>
