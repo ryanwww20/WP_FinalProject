@@ -75,7 +75,7 @@ export default function PomodoroTimer({ compact = false }: PomodoroTimerProps) {
               onClick={toggleTimer}
               className={`w-24 h-10 rounded-lg flex items-center justify-center absolute text-[16px] font-bold transition-all] ${
                 isRunning
-                  ? "bg-orange-500 hover:bg-orange-600 text-white mt-1"
+                  ? "bg-orange-400 hover:bg-orange-400 text-white mt-1"
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"
               }`}
             >

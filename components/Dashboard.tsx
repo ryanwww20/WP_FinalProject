@@ -37,6 +37,8 @@ export default function Dashboard() {
   const { data: session } = useSession();
   const [todaysEvents, setTodaysEvents] = useState<CalendarEvent[]>([]);
   const [todaysTodos, setTodaysTodos] = useState<TodoItem[]>([]);
+  const [tomorrowsEvents, setTomorrowsEvents] = useState<CalendarEvent[]>([]);
+  const [tomorrowsTodos, setTomorrowsTodos] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [studyingCount, setStudyingCount] = useState<number>(0);
 
@@ -75,6 +77,39 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchTomorrowData = useCallback(async () => {
+    try {
+      const tomorrow = addDays(new Date(), 1);
+      const startDate = startOfDay(tomorrow).toISOString();
+      const endDate = endOfDay(tomorrow).toISOString();
+
+      const [eventsResponse, todosResponse] = await Promise.all([
+        fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/todos?startDate=${startDate}&endDate=${endDate}`),
+      ]);
+
+      if (eventsResponse.ok) {
+        const data = await eventsResponse.json();
+        const events = data.events || [];
+        events.sort((a: CalendarEvent, b: CalendarEvent) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+        setTomorrowsEvents(events);
+      }
+
+      if (todosResponse.ok) {
+        const todoData = await todosResponse.json();
+        const todos: TodoItem[] = (todoData.todos || []).sort(
+          (a: TodoItem, b: TodoItem) =>
+            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        );
+        setTomorrowsTodos(todos);
+      }
+    } catch (error) {
+      console.error("Error fetching tomorrow's events:", error);
+    }
+  }, []);
+
   // Fetch studying count from all groups
   const fetchStudyingCount = useCallback(async () => {
     try {
@@ -99,11 +134,13 @@ export default function Dashboard() {
       const delay = nextMidnight.getTime() - now.getTime();
       midnightTimeout = setTimeout(() => {
         fetchTodayData();
+        fetchTomorrowData();
         scheduleMidnightRefresh();
       }, delay);
     };
 
     fetchTodayData();
+    fetchTomorrowData();
     fetchStudyingCount();
     scheduleMidnightRefresh();
 
@@ -114,7 +151,7 @@ export default function Dashboard() {
       clearTimeout(midnightTimeout);
       clearInterval(studyingInterval);
     };
-  }, [session?.user?.userId, fetchTodayData, fetchStudyingCount]);
+  }, [session?.user?.userId, fetchTodayData, fetchTomorrowData, fetchStudyingCount]);
 
   if (!session) return null;
 
@@ -122,6 +159,21 @@ export default function Dashboard() {
   const scheduleItems: ScheduleItem[] = [
     ...todaysEvents.map((event) => ({ ...event, type: "event" as const })),
     ...todaysTodos.map((todo) => ({
+      _id: todo._id,
+      title: todo.title,
+      startTime: todo.dueDate,
+      endTime: todo.dueDate,
+      description: todo.description,
+      completed: todo.completed,
+      type: "todo" as const,
+    })),
+  ].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  );
+
+  const tomorrowScheduleItems: ScheduleItem[] = [
+    ...tomorrowsEvents.map((event) => ({ ...event, type: "event" as const })),
+    ...tomorrowsTodos.map((todo) => ({
       _id: todo._id,
       title: todo.title,
       startTime: todo.dueDate,
@@ -160,8 +212,8 @@ export default function Dashboard() {
         {/* Schedule & Stats */}
         <div className="grid md:grid-cols-5 gap-6">
           {/* Left Column - Schedule */}
-          <div className="md:col-span-4 space-y-4">
-            <div className="sticky top-20">
+          <div className="md:col-span-4 space-y-6">
+            <div className="sticky top-20 space-y-6">
               {/* Today's Schedule */}
               <div>
                 <h2 className="text-2xl font-semibold text-foreground mb-4">Today's Schedule</h2>
@@ -257,6 +309,96 @@ export default function Dashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <p className="text-base font-medium text-muted-foreground">No schedule for today</p>
+                      <p className="text-sm text-muted-foreground/70 mt-1">Add events or todos to see them here</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tomorrow's Schedule */}
+              <div>
+                <h2 className="text-2xl font-semibold text-foreground mb-4">Tomorrow's Schedule</h2>
+                <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-40">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
+                        <p className="text-sm text-muted-foreground">Loading schedule...</p>
+                      </div>
+                    </div>
+                  ) : tomorrowScheduleItems.length > 0 ? (
+                    <div className="divide-y divide-border/50">
+                      {tomorrowScheduleItems.map((item) => {
+                        return (
+                          <div
+                            key={`${item.type}-${item._id}`}
+                            className="p-5 hover:bg-muted/60 transition-all duration-200 bg-card"
+                          >
+                            <div className="flex items-start gap-5">
+                              {/* Time Display */}
+                              <div className="flex flex-col items-center min-w-[60px]">
+                                <span className="text-base font-bold font-mono text-primary">
+                                  {format(new Date(item.startTime), "HH:mm")}
+                                </span>
+                                {item.endTime && item.startTime !== item.endTime && (
+                                  <span className="text-xs text-muted-foreground mt-0.5">
+                                    {format(new Date(item.endTime), "HH:mm")}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {/* Icon */}
+                                  {item.type === "event" ? (
+                                    <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-5 h-5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  )}
+                                  <p className="text-lg font-semibold text-foreground">
+                                    {item.title}
+                                  </p>
+                                </div>
+                                
+                                {/* Badge and Description */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${
+                                      item.type === "event"
+                                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                                        : "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
+                                    }`}
+                                  >
+                                    {item.type === "event" ? "Event" : "Todo"}
+                                  </span>
+                                  {item.description && (
+                                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                      {item.description}
+                                    </span>
+                                  )}
+                                  {item.type === "todo" && item.completed && (
+                                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                      ✓ Completed
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center">
+                      <svg className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-base font-medium text-muted-foreground">No schedule for tomorrow</p>
                       <p className="text-sm text-muted-foreground/70 mt-1">Add events or todos to see them here</p>
                     </div>
                   )}
