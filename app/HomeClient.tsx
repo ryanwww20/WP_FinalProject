@@ -82,13 +82,12 @@ export default function HomeClient() {
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="space-y-4">
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-foreground drop-shadow-lg">
-              Manage your{" "}
               <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Academic Life
+                讀書有揪
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed drop-shadow">
-              The all-in-one platform for students. Track courses, manage events, and stay organized.
+              找到讀書夥伴，共同學習成長。分享學習位置，追蹤學習進度，讓讀書不再孤單。
             </p>
           </div>
 
@@ -97,13 +96,13 @@ export default function HomeClient() {
               href="/auth/signin"
               className="px-8 py-4 bg-primary text-primary-foreground text-lg font-semibold rounded-full shadow-lg hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-200"
             >
-              Get Started Free
+              開始使用
             </Link>
             <a
               href="#features"
               className="px-8 py-4 bg-card/80 backdrop-blur text-card-foreground text-lg font-semibold rounded-full shadow hover:bg-muted transition-all duration-200 border border-border"
             >
-              Learn More
+              了解更多
             </a>
           </div>
         </div>
@@ -113,13 +112,13 @@ export default function HomeClient() {
       <section id="features" className="relative py-20 px-4 bg-background/90 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-16 text-foreground">
-            Why Choose WP Final Project?
+            為什麼選擇讀書有揪？
           </h2>
 
           <div className="grid md:grid-cols-3 gap-8">
             <FeatureCard
-              title="Smart Calendar"
-              description="Visualize your schedule with our intuitive calendar view. Never miss a class or deadline again."
+              title="智慧行事曆"
+              description="視覺化您的課程與待辦事項，整合 Google Calendar 雙向同步，再也不會錯過重要事項。"
               icon={
                 <svg
                   className="w-8 h-8 text-primary"
@@ -137,8 +136,8 @@ export default function HomeClient() {
               }
             />
             <FeatureCard
-              title="Course Management"
-              description="Keep track of all your courses, assignments, and grades in one centralized location."
+              title="讀書社群"
+              description="建立或加入讀書群組，與夥伴一起學習。即時聊天、位置分享、專注排行，讓學習更有動力。"
               icon={
                 <svg
                   className="w-8 h-8 text-secondary"
@@ -156,8 +155,8 @@ export default function HomeClient() {
               }
             />
             <FeatureCard
-              title="Secure & Private"
-              description="Built with industry-standard security. Your data is encrypted and safe with us."
+              title="學習追蹤"
+              description="記錄每日學習時間，查看專注統計數據，掌握學習進度，培養良好的學習習慣。"
               icon={
                 <svg
                   className="w-8 h-8 text-green-500"

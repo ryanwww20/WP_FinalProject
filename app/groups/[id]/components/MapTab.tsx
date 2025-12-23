@@ -457,7 +457,7 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       const response = await fetch('/api/profile/favorites');
       if (response.ok) {
         const data = await response.json();
-        const favoriteIds = new Set(data.favorites.map((fav: any) => fav.placeId));
+        const favoriteIds = new Set<string>(data.favorites.map((fav: any) => fav.placeId as string));
         setFavoritePlaces(favoriteIds);
       }
     } catch (error) {
@@ -490,7 +490,11 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
       });
 
       if (response.ok) {
-        setFavoritePlaces(prev => new Set([...prev, place.placeId]));
+        setFavoritePlaces(prev => {
+          const newSet = new Set(prev);
+          newSet.add(place.placeId);
+          return newSet;
+        });
         alert('已加入收藏！');
       } else {
         const error = await response.json();
@@ -618,10 +622,9 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
         return;
       }
 
-      const request: google.maps.places.PlaceSearchRequest = {
+      const request: google.maps.places.TextSearchRequest = {
         query: searchQuery,
         bounds: bounds,
-        type: ['book_store', 'cafe', 'library'],
         language: 'zh-TW',
       };
 
@@ -707,9 +710,8 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
     }, 10000); // 10 秒超時
 
     try {
-      const request: google.maps.places.PlaceSearchRequest = {
+      const request: google.maps.places.TextSearchRequest = {
         query: searchQuery,
-        type: ['book_store', 'cafe', 'library'],
         language: 'zh-TW',
       };
 
@@ -858,7 +860,6 @@ export default function MapTab({ groupId, isScriptLoaded = false }: MapTabProps)
                   options={{
                     types: ['book_store', 'cafe', 'library'],
                     componentRestrictions: { country: 'tw' },
-                    language: 'zh-TW',
                   }}
                 >
                   <input

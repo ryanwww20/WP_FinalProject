@@ -246,7 +246,6 @@ export default function LocationFormModal({
                   options={{
                     types: ['book_store', 'cafe', 'library'],
                     componentRestrictions: { country: 'tw' },
-                    language: 'zh-TW',
                   }}
                 >
                   <input
